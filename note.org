@@ -1,0 +1,4 @@
+* 01 beware of merging 2 completely different branches
+>> git pull origin main --allow-unrelated-histories
+>> git push origin dev
+This will fill all missing files in "dev" with files from "main"

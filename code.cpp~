@@ -1,0 +1,44 @@
+#include <iostream> // cout
+using namespace std; // std = standard
+
+int i,j;
+const int nx = 31;
+const int ny = 31;
+double phi[nx][ny];
+
+void initialize(){
+  // initialize variable phi
+  for (i = 0; i <= nx-1; i++) {
+    for (j = 0; j <= ny-1; j++) {
+      phi[i][j] = 0.0;
+    }
+  }
+}
+
+void visualize(){
+   for (i = 0; i <= nx-1; i++) {
+     for (j = 0; j <= ny-1; j++) {
+      cout << phi[i][j] << " ";
+    }
+     cout << "\n";
+  } 
+}
+
+void set_phi() {
+  // Assign phi = 1 inside a circle around center of radius = 15
+  // letting dx = dy = 1
+  // as e.g., x_spaceing = dx*diff(index), not diff(index) itself
+
+  
+
+
+
+}
+
+int main() {
+
+  // initiallize variable phi
+  initialize();
+  visualize();
+  
+} // end main

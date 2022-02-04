@@ -1,0 +1,13 @@
+#include <iostream> // cout
+using namespace std; // std = standard
+int main() {
+  //  cout << "Hello//  World\n";
+  // int a; a = 2;
+  // double b; b = 10.;
+
+  // // double c;
+  // // c = double(a) + b;
+  // cout << "c = " << c << "\n";
+
+  
+}

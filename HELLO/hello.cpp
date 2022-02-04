@@ -2,6 +2,6 @@
 using namespace std;
 int main(){
 
-    cout << "Hello class\n";
+    cout << "Hello 496 class\n";
 
 }

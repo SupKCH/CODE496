@@ -1,0 +1,19 @@
+# vtk DataFile Version 2.0
+FlowField
+ASCII
+DATASET STRUCTURED_GRID
+DIMENSIONS 2 1 2
+POINTS 4 float
+1 1 0
+1 2 0
+2 1 0
+2 2 0
+
+POINT_DATA 4
+
+SCALARS PHI float 1
+LOOKUP_TABLE default
+1
+2
+3
+4

@@ -1,0 +1,10 @@
+# vtk datafile Version 2.0
+FlowField
+ASCII
+DATASET STRUCTURED_GRID
+DIMENSION 212
+POINTS 4 float
+1 1 0
+1 2 0
+2 1 0
+2 2 0

@@ -3,6 +3,8 @@
    Matrix 9x9
  */
 
+// ==>   g++ code_lapackTEST2.cpp -o code_lapackTEST2.exe -L/usr/lib/x86_64-linux-gnu/ -llapacke
+
 #include <iostream>
 #include <lapacke.h>
 using namespace std;

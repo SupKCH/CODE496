@@ -1,0 +1,74 @@
+
+// Practice creating variable (phi) array
+
+
+#include <iostream>
+using namespace std;
+
+
+/* =================== Subroutine ===================== */
+void node_initialize(double* var, int nx_func) {
+
+  // initialize a 1D heat steel rod
+  
+  for (int i = 0; i <= nx_func-1; i++) {
+    var[i] = 0.;
+  }
+}
+
+void node_1DHeatCondition(double* var) {
+
+  // Let's set temperature at one end of the rod to be constant at 100degC
+  var[0] = 100.;
+
+  // No fixed condition at the other end, just 0 as the other nodes
+  
+}
+
+void visualize(double* var, int nx_func) {
+  
+  for (int i = 0; i <= nx_func-1; i++) {
+    cout << var[i] << '\t';
+  }
+  cout << "\n";
+
+}
+
+void explicit_sim(double* var, double* var_new, int nx_func, double coeff, double dt, double dx) {
+  // Central finite difference except two ends of the rod
+  for (int i = 1; i <= nx_func - 2; i++) {
+    var_new[i] = var[i] + coeff*dt*(var[i+1] - 2*var[i] + var[i-1])/(dx*dx);
+  }
+
+  var_new[0] = var[0];
+  var_new[nx_func-1] = var[nx_func-1] + coeff*dt*(var[nx_func-3] - 2*var[nx_func-2] + var[nx_func-1])/(dx*dx);
+
+  for (int i = 0; i <= nx_func - 1; i++) {
+    var[i] = var_new[i];
+  }
+}
+
+void implicit_sim(double* var, double* var_new, int nx_func, double coeff, double dt, double dx) {
+  
+}
+
+/* =================== MAIN ======================= */
+int main() {
+  
+  int nx = 20;
+  double k = 1.;
+  double dt = 0.01;
+  double dx = 1.;
+  // if dx = 0.1 and dt = 0.01 --> simulation is blown up!! --> increase dx, decrease dt will help
+  
+  double temperature[nx];
+  double temperature_new[nx];
+  
+  node_initialize(temperature, nx);
+  node_1DHeatCondition(temperature);
+  visualize(temperature, nx);
+  for (int i = 0; i <= 10; i++) { 
+    explicit_sim(temperature, temperature_new, nx, k, dt, dx);
+    visualize(temperature_new, nx);
+  }
+}

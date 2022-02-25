@@ -1,0 +1,39 @@
+
+// Practice creating variable (phi) array
+
+// g++ practice_init.cpp -o practice_init.exe -L/usr/lib/x86_64-linux-gpu/ -llapack
+
+#include <iostream>
+#include <lapacke.h>
+#include <fstream>
+using namespace std;
+
+
+
+/* =================== Subroutine ===================== */
+void node_initialize(double* var, int nx_func) {
+
+  // initialize a 1D heat steel rod
+  
+  for (int i = 0; i <= nx_func-1; i++) {
+    var[i] = 0.;
+  }
+}
+
+void node_1DHeatCondition(double* var) {
+
+  // Let's set temperature at one end of the rod to be constant at 100degC
+  var[0] = 100.;
+
+  // No fixed condition at the other end, just 0 as the other nodes
+  
+}
+
+void visualize(double* var, int nx_func) {
+  
+  for (int i = 0; i <= nx_func-1; i++) {
+    cout << var[i] << ' ';
+  }
+  cout << "\n";
+
+}

@@ -1,11 +1,13 @@
 
 // Practice creating variable (phi) array
 
+// g++ practice_init.cpp -o practice_init.exe -L/usr/lib/x86_64-linux-gpu/ -llapack
 
 #include <iostream>
 #include <lapacke.h>
 #include <fstream>
 using namespace std;
+
 
 
 /* =================== Subroutine ===================== */
@@ -126,59 +128,8 @@ void implicit_sim(double* var, double* var_new, int nx_func, double coeff, doubl
 
 }
 
-/* =================== MAIN ======================= */
-int main() {
-  
-  int nx = 20;
-  double k = 1.;
-  double dt = 0.05;
-  double dx = 1.;
-  // if dx = 0.1 and dt = 0.01 --> simulation is blown up!! --> increase dx, decrease dt will help
-  
-  double temperature[nx];
-  double temperature_new[nx];
-
-  
-  node_initialize(temperature, nx);
-  node_1DHeatCondition(temperature);
-  visualize(temperature, nx);
-  
-  /*
-    // (1) Explicit scheme
-  for (int i = 0; i <= 10; i++) { 
-    explicit_sim(temperature, temperature_new, nx, k, dt, dx);
-    visualize(temperature_new, nx);
-  }
-  */
-
-
-  // (2) Implicit scheme
-  double b[nx-1] = {
-		    -(-k*dt/(dx*dx))*100,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0,
-		    0.0
-  };
-  for (int iteration = 0; iteration <= 500; iteration++) {
-    implicit_sim(temperature, temperature_new, nx, k, dt, dx, b);
-    visualize(b, nx-1);
-  }
-
+/*
+void to_paraview() {
   
   ofstream myfile;
   myfile.open("vtk_files/practice/phi_practice.vtk");
@@ -209,6 +160,65 @@ int main() {
   }
   
   myfile.close();
+}
+*/  
 
+
+/* =================== MAIN ======================= */
+int main() {
+  
+  int nx = 21;
+  double k = 1.;
+  double dt = 0.05;
+  double dx = 1.;
+  // if dx = 0.1 and dt = 0.01 --> simulation is blown up!! --> increase dx, decrease dt will help
+  
+  double temperature[nx];
+  double temperature_new[nx];
+
+  
+  node_initialize(temperature, nx);
+  node_1DHeatCondition(temperature);
+  visualize(temperature, nx);
+  
+  /*
+    // (1) Explicit scheme
+  for (int i = 0; i <= 10; i++) { 
+    explicit_sim(temperature, temperature_new, nx, k, dt, dx);
+    visualize(temperature_new, nx);
+  }
+  */
+
+
+  // (2) Implicit scheme
+  /*
+  double b[nx-1] = {
+		    -(-k*dt/(dx*dx))*100,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0,
+		    0.0
+		    }; */
+  /*
+  for (int iteration = 0; iteration <= 500; iteration++) {
+    implicit_sim(temperature, temperature_new, nx, k, dt, dx, b);
+    visualize(b, nx-1);
+  }
+  */
+  
   
 }

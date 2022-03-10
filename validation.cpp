@@ -292,7 +292,7 @@ int main() {
   const int ny = 200; // increases by 4 times, previously =50
   const double dy = (1.0/(double)ny); // becomes smaller by 4 times
   const double dx = 16.0*dy; // increases by 4 times, previously =4.0*dy
-  const double dt = 0.005; // Previously 0.005
+  const double dt = 0.001; // Previously 0.005
   const double Re = 300.0;
   const double SOR = 1.7;
   

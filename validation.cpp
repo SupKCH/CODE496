@@ -372,13 +372,13 @@ int main() {
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
 
-  string filename_prefix = "vtk_files/valid2/valid2_";
+  string filename_prefix = "vtk_files/valid3/valid3_";
   paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
   paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
   paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
    
 
-  for (int i=2; i<=25000; i++) {
+  for (int i=2; i<=50000; i++) {
     // ############ STEP 1: Calculate F_n & G_n from u_n, v_n ############
     F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
     G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
@@ -390,13 +390,13 @@ int main() {
     // ############ STEP 3: compute new velocity field (u_n+1, v_n+1) with p_n+1  ############
     u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
     v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
-    if (i % 500 == 0) {
+    if (i % 1000 == 0) {
       paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
       paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
       paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");
       cout << i << "\n";
     }
-    else if (i >= 24910 && i <= 24990) {
+    else if (i >= 49100 && i <= 49900 && i % 100 == 0) {
       paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
       paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
       paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");

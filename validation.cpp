@@ -281,7 +281,7 @@ void paraview(string fileName, double **var, int nx, int ny, double dx, double d
   myfile << "LOOKUP_TABLE default\n";
   for (int j = 0; j <= ny-1; j++) {
     for (int i = 0; i <= nx-1; i++) {
-      myfile << setprecision(10) << var[i][j] << "\n";
+      myfile << setprecision(15) << var[i][j] << "\n";
     }
   }
   myfile.close();
@@ -289,7 +289,7 @@ void paraview(string fileName, double **var, int nx, int ny, double dx, double d
 
 
 int main() {
-  const int nx = 400;
+  const int nx = 800; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
   const int ny = 200; // increases by 4 times, previously =50
   const double dy = (1.0/(double)ny); // becomes smaller by 4 times
   const double dx = 16.0*dy; // increases by 4 times, previously =4.0*dy
@@ -373,7 +373,7 @@ int main() {
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
 
-  string filename_prefix = "vtk_files/valid4/valid4_";
+  string filename_prefix = "vtk_files/valid5/valid5_";
   paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
   paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
   paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");

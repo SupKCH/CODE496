@@ -2,6 +2,7 @@
 #include <cmath>
 #include <fstream> // save & load restart files
 #include <string>
+#include <iomanip> // std::setprecision()
 using namespace std;
 
 double du2_dx(double** u, int i, int j, double dx) {
@@ -280,7 +281,7 @@ void paraview(string fileName, double **var, int nx, int ny, double dx, double d
   myfile << "LOOKUP_TABLE default\n";
   for (int j = 0; j <= ny-1; j++) {
     for (int i = 0; i <= nx-1; i++) {
-      myfile << var[i][j] << "\n";
+      myfile << setprecision(10) << var[i][j] << "\n";
     }
   }
   myfile.close();
@@ -372,7 +373,7 @@ int main() {
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
 
-  string filename_prefix = "vtk_files/valid3/valid3_";
+  string filename_prefix = "vtk_files/valid4/valid4_";
   paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
   paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
   paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");

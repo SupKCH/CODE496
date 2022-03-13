@@ -105,7 +105,7 @@ void implicit_sim(double* var, double* var_new, int nx_func, double coeff, doubl
   };
   */
 
-  /*
+  
   for (int i = 0; i < N*N; i++) {
     if (i % N == 0) {
       cout << "\n";
@@ -113,7 +113,7 @@ void implicit_sim(double* var, double* var_new, int nx_func, double coeff, doubl
     cout << A[i] << " ";
   }
   cout << "\n";
-  */
+  
 
   b_func[0] = -a1*100;
   info = LAPACKE_dgesv( LAPACK_COL_MAJOR, N, NRHS, A, LDA, ipiv, b_func, LDB);
@@ -174,7 +174,7 @@ int main() {
 		    0.0,
 		    0.0
   };
-  for (int iteration = 0; iteration <= 500; iteration++) {
+  for (int iteration = 0; iteration <= 50; iteration++) {
     implicit_sim(temperature, temperature_new, nx, k, dt, dx, b);
     visualize(b, nx-1);
   }

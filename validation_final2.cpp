@@ -5,7 +5,11 @@
 #include <iomanip> // std::setprecision()
 using namespace std;
 // Validation_6.vtk (recheck) gives results identical to Validation_4.vtk (old data)
+//    ^ x_max = 32                                          ^ x_max = 32
+// note: _5.vtk ---> x_max = 64 (too much), presents different convergence (that is usual for  sure!)
 
+ofstream myfileO;  // output file stream
+ifstream myfileI;  // input file stream
 
 double du2_dx(double** u, int i, int j, double dx) {
   return (pow((u[i][j] + u[i+1][j])/2.0, 2) - pow((u[i-1][j] + u[i][j])/2.0, 2))/dx;
@@ -38,23 +42,6 @@ double d2v_dx2(double** v, int i, int j, double dx) {
 double d2v_dy2(double** v, int i, int j, double dy) {
   return (v[i][j+1] - 2*v[i][j] + v[i][j-1])/pow(dy,2);
 }
-
-/*
-double dvar_2Bydspace_1(double** var, double dspace, int i, int j) {
-  double cal_value = (pow((var[i][j] + var[i+1][j])/2.0, 2) - pow((var[i-1][j] + var[i][j])/2.0, 2))/dspace;
-  return cal_value;
-}
-
-double dvar1var2Bydspace_1(double** var1, double** var2, double dspace, int i, int j) {
-  double cal_value = ((var2[i][j] + var2[i+1][j])*(var1[i][j] + var1[i][j+1])/4.0 + (var2[i][j-1] + var2[i+1][j-1])*(var1[i][j-1] + var1[i][j])/4.0)/dspace;
-  return cal_value;
-}
-
-double dvar_2Bydspace_2(double** var, double dspace, int i, int j) {
-  double cal_value = (var[i+1][j] - 2*var[i][j] + var[i-1][j])/(dspace*dspace);
-  return cal_value;
-}
-*/
 
 void initialize_u(double** var, int nx, int ny) {
   for (int i=0; i < nx; i++) {
@@ -170,7 +157,6 @@ void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx
     for (int i=1; i <= nx-2; i++) {
       for (int j=1; j <= ny-2; j++) {
 	double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
-	//cout << rhs_ij << "\n";
 	p[i][j] = (1-SOR) * p[i][j] + SOR/((eE(i, nx) + eW(i))/(dx*dx) + (eN(j, ny) + eS(j))/(dy*dy)) * ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
       }
     }
@@ -289,6 +275,81 @@ void paraview(string fileName, double **var, int nx, int ny, double dx, double d
   myfile.close();
 }
 
+void paraview2D(string fileName, double** u_new, double** v_new, double** p, double** phi_new, int nx, int ny, double dx, double dy, int precision) {
+  ofstream myfile;
+  myfile.open(fileName);
+
+  myfile << "# vtk DataFile Version 2.0\n";
+  myfile << "FlowField\n";
+  myfile << "ASCII\n";
+
+  myfile << "DATASET STRUCTURED_GRID\n";
+  myfile << "DIMENSIONS " << nx << " " << 1 << " " << ny << "\n";
+  myfile << "POINTS " << nx*1*ny << " float\n";
+  for (int j = 0; j <= ny-1; j++) {
+    for (int i = 0; i <= nx-1; i++) {
+      myfile << dx*i << " " << dy*j << " 0\n";
+    }
+  }
+  
+  // Data: (u, v), p, phi (4 variables)
+  myfile << "\n";
+  myfile << "POINT_DATA";
+  myfile << " " << nx*ny << "\n";
+
+  // Pressure (p) [SCALAR]
+  myfile << "\n";
+  myfile << "SCALARS " << "p" << " float 1\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (int j = 0; j <= ny-1; j++) {
+    for (int i = 0; i <= nx-1; i++) {
+      myfile << setprecision(precision) << p[i][j] << "\n";
+    }
+  }
+
+  // Pollution (phi) [SCALAR]
+  myfile << "\n";
+  myfile << "SCALARS " << "phi" << " float 1\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (int j = 0; j <= ny-1; j++) {
+    for (int i = 0; i <= nx-1; i++) {
+      myfile << setprecision(precision) << phi_new[i][j] << "\n";
+    }
+  }
+  
+  // Velocity vector (u, v) [VECTOR]
+  myfile << "\n";
+  myfile << "VECTORS " << "Velocity" << " float\n";
+  for (int j = 0; j <= ny-1; j++) {
+    for (int i = 0; i <= nx-1; i++) {
+      myfile << setprecision(precision) << u_new[i][j] << " " << v_new[i][j] << " 0\n";
+    }
+  }
+  myfile.close();
+}
+
+void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, double** v_new, int nx, int ny, double dx, double dy, double dt, double Re) {
+  for (int i=1; i <= nx-2; i++) {
+    for (int j=1; j <= ny-2; j++) {
+      phi_new[i][j] = phi[i][j] + dt*(((phi[i+1][j] - 2*phi[i][j] + phi[i-1][j])/(dx*dx) + (phi[i][j+1] - 2*phi[i][j] + phi[i][j-1])/(dy*dy))/Re - u_new[i][j]*(phi[i+1][j] - phi[i-1][j])/(2*dx) - v_new[i][j]*(phi[i][j+1] - phi[i][j-1])/(2*dy));
+    }
+  }
+  for (int j=0; j <= ny-1; j++) {
+    phi_new[nx-1][j] = phi_new[nx-2][j];
+  }
+  for (int i=0; i <= nx-1; i++) {
+    phi_new[i][0] = phi_new[i][1];
+    phi_new[i][ny-1] = phi_new[i][ny-2];
+  }
+
+  // Update "phi" with "phi_new"
+  for (int i=0; i <= nx-1; i++) {
+    for (int j=0; j <= ny-1; j++) {
+      phi[i][j] = phi_new[i][j];
+    }
+  }
+}
+
 
 int main() {
   const int nx = 400; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
@@ -310,7 +371,8 @@ int main() {
   double **u_new;
   double **v_new;
   double **phi_new;
-  double **p_new;
+  double **phi_half;
+  //  double **p_new;
   
   u = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
@@ -348,10 +410,17 @@ int main() {
     phi_new[i] = (double *) malloc (ny * sizeof(double));
   }
   
+  phi_half = (double **) malloc (nx * sizeof(double));
+  for (int i = 0; i < nx; i++) {
+    phi_half[i] = (double *) malloc (ny * sizeof(double));
+  }
+
+  /*
   p_new = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
     p_new[i] = (double *) malloc (ny * sizeof(double));
   }
+  */
   
   F_n = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
@@ -364,46 +433,42 @@ int main() {
   }
 
   // --------------------------------------------
-
-  
   initialize_u(u, nx, ny);
   initialize_u(u_new, nx, ny);
   initialize_zero(v, nx, ny);
   initialize_zero(v_new, nx, ny);
-  //initialize_phi(phi, nx, ny);
+  
+  initialize_phi(phi, nx, ny);
+  initialize_phi(phi_half, nx, ny);
+  initialize_phi(phi_new, nx, ny);
+  //quick_visualize(phi, nx, ny);
+  
   initialize_zero(F_n, nx, ny);
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
-
-  string filename_prefix = "vtk_files/valid6/valid6_";
-  paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
-  paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
-  paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
-   
-
-  for (int i=2; i<=50000; i++) {
-    // ############ STEP 1: Calculate F_n & G_n from u_n, v_n ############
+  
+  string f_name = "vtk_files/validBest/validBest_";
+  const int precision = 10;
+  paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+  
+  for (int it=1; it <= 100000; it++) { //100000
     F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
     G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-  
-    // ############ STEP 2: Solve Poisson Eqn. for pressure @ n+1, p_n+1  ############ 
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);
-  
-
-    // ############ STEP 3: compute new velocity field (u_n+1, v_n+1) with p_n+1  ############
+    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);  
     u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
     v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
-    if (i % 1000 == 0) {
-      paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
-      paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
-      paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");
-      cout << i << "\n";
-    }
-    else if (i >= 49100 && i <= 49900 && i % 100 == 0) {
-      paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
-      paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
-      paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");
-      cout << i << "\n";
+    explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
+    if (it % 20 == 0) { //20
+      cout << it << "\n";
+      if (it % 1000 == 0) { //1000
+	paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+      }
     }
   }
+  // RESTART FILE
+  /*
+  string restart_filename = "res_files/valid_2_1.dat";
+  save_restartfile(phi, restart_filename, nx, ny);
+  read_restartfile(phi, restart_filename, nx, ny);
+  */
 }

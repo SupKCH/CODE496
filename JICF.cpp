@@ -3,7 +3,7 @@
 #include <fstream> // save & load restart files
 #include <string>
 #include <iomanip> // std::setprecision()
-//#include <cstring> // memcpy --> useless!
+#include <cstring>
 #include <algorithm> // std::max
 //#include <lapacke.h>
 // ==>   g++ code_lapackTEST2.cpp -o code_lapackTEST2.exe -L/usr/lib/x86_64-linux-gnu/ -llapacke
@@ -16,7 +16,6 @@ ifstream myfileI;  // input file stream
 
 double gamma(double** u, double** v, int i, int j, double dx, double dy, double dt) {
   return max(abs(u[i][j]*dt/dx),abs(v[i][j]*dt/dy));
-  //return 0.0;
 }
 
 double du2_dx(double** u, double** v, int i, int j, double dx, double dy, double dt) {
@@ -51,20 +50,26 @@ double d2v_dy2(double** v, int i, int j, double dy) {
   return (v[i][j+1] - 2*v[i][j] + v[i][j-1])/pow(dy,2);
 }
 
-void initialize_u(double** var, int nx, int ny) {
+void initialize_u_3D(double*** var, int nx, int ny, int nz) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
-      var[i][j] = 1.0;
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 0.0;
+      }
     }
   }
 
-  for (int j=1; j < ny-1; j++) {
-    var[0][j] = 1.0;
+  for (int i=1; i <= nx-2; i++) {
+    for (int j=1; j <= ny-2; j++) {
+      var[i][j][0] = 1.0;
+    }
   }
+  /*
   for (int i=0; i <= nx-1; i++) {
     var[i][0] = -1.0*var[i][1];
     var[i][ny-1] = -1.0*var[i][ny-2];
   }
+  */
 }
 
 void initialize_zero(double** var, int nx, int ny) {
@@ -98,10 +103,13 @@ void initialize_pressure(double** var, int nx, int ny) {
   }
 }
 
-void quick_visualize(double** var, int nx, int ny) {
-  for (int j=ny-1; j >= 0; j-- ) {
-    for (int i=0; i <= nx-1; i++) {
-      cout << var[i][j] << " ";
+void quick_visualize_3D(double*** var, int nx, int ny, int nz) {
+  for (int k=0; k <= 3; k++) {
+    for (int j=ny-1; j >= 0; j-- ) {
+      for (int i=0; i <= nx-1; i++) {
+	cout << var[i][j][k] << " ";
+      }
+      cout << "\n";
     }
     cout << "\n";
   }
@@ -169,7 +177,7 @@ double eN(int j, int ny) {
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy) {
   double rhs_ij = 0.0;
-  for (int iteration=1; iteration <= 30; iteration++) {
+  for (int iteration=1; iteration <= 16; iteration++) {
     for (int i=1; i <= nx-2; i++) {
       for (int j=1; j <= ny-2; j++) {
         rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
@@ -390,189 +398,6 @@ void paraview3D(string fileName, double** u_new, double** v_new, double** w_new,
   myfile.close();
 }
 
-/*
-void implicit_passiveScalar(double** phi, double** phi_half, double** phi_new, double** u_new, double** v_new, int nx, int ny, double dx, double dy, double dt, double Re, bool verbose) {
-  int N = nx-2, NRHS = 1, LDA = N, LDB = N;
-  int ipiv[N], info;
-  double A[LDA*N];
-
-  double a = 1/(Re*(dx*dx));
-  double b = 1/(Re*(dy*dy));
-  double c = 2/dt;
-
-  for (int i = 0; i <= N*N-1; i++) {
-    A[i] = 0.0;
-  }
-
-  // ----------------- Start half-step X cycles (fixed Y)  -----------------
-  for (int j = 1; j <= ny-2; j++) {
-    for (int i = 0; i <= N*N-1; i++) {
-      if (i == 0) {
-	A[0] = c - 2*a;
-	A[1] = u_new[i+1][j] + a;
-      }
-      else if (i % N == 0 && i != N*(N-1)) {
-	int real_i = int(i/N)-1;
-	A[i + real_i] = -1.0*u_new[real_i+1][j] + a;
-	A[i+1 + real_i] = c - 2*a;
-	A[i+2 + real_i] = u_new[real_i+1][j] + a;
-      }
-      else if (i == N*(N-1)) {
-	int real_i = int(i/N)-1;
-	A[N*N -2] = -1.0*u_new[real_i+1][j] + a;
-	A[N*N -1] = c - 2*a + (u_new[real_i+1][j] + a);
-      }
-    }
-
-    if (verbose) {
-      for (int i = 0; i < N*N; i++) {
-	if (i % N == 0) {
-	  cout << "\n";
-	}
-	cout << A[i] << " ";
-      }
-      cout << "\n";
-    }
-  
-    double bx[LDB*NRHS];
-    // column matrix which "phi" is at single "j"
-    for (int i = 0; i <= LDB*NRHS -1; i++) {
-      bx[i] = c*phi[i+1][j] - v_new[i+1][j]*(phi[i+1][j+1] - phi[i+1][j-1])/(2*dy) + (phi[i+1][j+1] - 2*phi[i+1][j] + phi[i+1][j-1])/(Re*(dy*dy));
-      if (i == 0) {
-	bx[i] -= (-1.0*u_new[i+1][j] + a)*phi[i-1+1][j];
-      }
-      else if (i == LDB*NRHS-1) {
-	bx[i] -= 0.0;
-      }
-    }
-    if (verbose) {
-      for(int i=0; i<= LDB*NRHS-1; i++) {
-	cout << bx[i] << "\t";
-      }
-      cout << "\n";
-    }
-
-    info = LAPACKE_dgesv(LAPACK_COL_MAJOR, N, NRHS, A, LDA, ipiv, bx, LDB);
-    // solution comes out as "bx"
-    if (verbose) {
-      for(int i=0; i<= LDB*NRHS-1; i++) {
-	cout << bx[i] << "\t";
-      }
-      cout << "\n";
-    }
-    
-    // Update to "phi_half"
-    for (int i = 0; i <= LDB*NRHS-1; i++) {
-      phi_half[i+1][j] = bx[i];
-    }
-   }//----------------- End of half-step X cycle -----------------
-
-  // outflow (half-step)
-  for (int j=1; j <= ny-2; j++) {
-    phi_half[nx-1][j] = phi_half[nx-2][j];
-  }
-  // Top-Bottom no flux flow (half-step)
-  for (int i = 0; i <= nx-1; i++) {
-    phi_half[i][0] = phi_half[i][1];
-    phi_half[i][ny-1] = phi_half[i][ny-2];
-  }
-
-  // checking X-half step
-  //quick_visualize(phi_half, nx, ny);
-
-
-  N = ny-2;
-  NRHS = 1;
-  LDA = N;
-  LDB = N;
-  int ipiv2[N], info2;
-  double A2[LDA*N];
-
-  for (int i = 0; i <= N*N-1; i++) {
-    A2[i] = 0.0;
-  }
-
-  //----------------- Start half-step Y cycles -----------------
-  for (int i = 1; i <= nx-2; i++) {
-    for (int j = 0; j <= N*N-1; j++) {
-      if (j == 0) {
-	int real_j = int(j/N)-1;
-	A2[0] = c - 2*b + (v_new[i][real_j+1] + b);
-	A2[1] = v_new[i][j+1] + b;
-      }
-      else if (j % N == 0 && j != N*(N-1)) {
-	int real_j = int(j/N)-1;
-	A2[j + real_j] = -1.0*v_new[i][real_j+1] + b;
-	A2[j+1 + real_j] = c - 2*b;
-	A2[j+2 + real_j] = v_new[i][real_j+1] + b;
-      }
-      else if (j == N*(N-1)) {
-	int real_j = int(j/N)-1;
-	A2[N*N -2] = -1.0*v_new[i][real_j+1] + b;
-	A2[N*N -1] = c - 2*b + (v_new[i][real_j+1] + b);
-      }
-    }
-
-    if (verbose) {
-      for (int j = 0; j < N*N; j++) {
-	if (j % N == 0) {
-	  cout << "\n";
-	}
-	cout << A2[j] << " ";
-      }
-      cout << "\n";
-    }
-  
-    double by[LDB*NRHS];
-    // column matrix which "phi" is at single "i"
-    for (int j = 0; j <= LDB*NRHS -1; j++) {
-      by[j] = c*phi_half[i][j+1] - u_new[i][j+1]*(phi_half[i+1][j+1] - phi_half[i-1][j+1])/(2*dx) + (phi_half[i+1][j+1] - 2*phi_half[i][j+1] + phi_half[i-1][j+1])/(Re*(dx*dx));
-      if (j == 0) {
-	by[j] -= 0.0;
-      }
-      else if (j == LDB*NRHS-1) {
-	by[j] -= 0.0;
-      }
-    }
-
-    if (verbose) {
-      for(int j=0; j<= LDB*NRHS-1; j++) {
-	cout << by[j] << "\t";
-      }
-      cout << "\n";
-    }
-
-    info2 = LAPACKE_dgesv(LAPACK_COL_MAJOR, N, NRHS, A2, LDA, ipiv2, by, LDB);
-    // solution comes out as "bx"
-    if (verbose) {
-      for(int j=0; j<= LDB*NRHS-1; j++) {
-	cout << by[j] << "\t";
-      }
-      cout << "\n";
-    }
-    
-    // Update to "phi_new"
-    for (int j = 0; j <= LDB*NRHS-1; j++) {
-      phi_new[i][j+1] = by[j];
-    }
-  }//----------------- end of half-step Y cycles -----------------
-
-  // outflow (full-step)
-  for (int j=1; j <= ny-2; j++) {
-    phi_new[nx-1][j] = phi_new[nx-2][j];
-  }
-  
-  // Top-Bottom no flux flow (full-step)
-  for (int i = 0; i <= nx-1; i++) {
-    phi_new[i][0] = phi_new[i][1];
-    phi_new[i][ny-1] = phi_new[i][ny-2];
-  }
-  
-  // checking Y-half step
-  //quick_visualize(phi_new, nx, ny);
-}
-*/
-
 void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, double** v_new, int nx, int ny, double dx, double dy, double dt, double Re) {
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
@@ -593,37 +418,76 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
       phi[i][j] = phi_new[i][j];
     }
   }
+
 }
 
 int main() {
-  const int nx = 800; //400// increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
-                      // changed back to 400 (reduced load)
-  const int ny = 200; //800// increases by 4 times, previously =50
-  const double dy = (1.0/(double)ny); // becomes smaller by 4 times
-  const double dx = 8.0*dy; // increases by 4 times, previously =4.0*dy // changed back to 4.0 from 16.0
+  const int nx = 10;
+  const int ny = 20;
+  const int nz = 15;
+  const double dx = 20.0/(double)ny;
+  const double dy = 10.0/(double)ny;
+  const double dz = 15.0/(double)nz;
   const double dt = 0.001; // Previously 0.005
-  const double Re = 300.0;
+  const double diameter = 1.0;
+  const double Re = 1000.0;
   const double SOR = 1.7;
+
+  const double centerX = 5.0;
+  const double centerY = 5.0;
   
   // ---------------------------------------------
-  double **u;
-  double **v;
-  double **phi;
-  double **p;
-  double **F_n;
-  double **G_n;
-
-  double **u_new;
-  double **v_new;
-  double **phi_new;
-  double **phi_half;
-  double **p_new;
+  double ***u = (double ***) malloc (nx * sizeof(double**));
+  double ***v = (double ***) malloc (nx * sizeof(double**));
+  double ***w = (double ***) malloc (nx * sizeof(double**));
+  double ***phi = (double ***) malloc (nx * sizeof(double**));
+  double ***p = (double ***) malloc (nx * sizeof(double**));
+  double ***F_n = (double ***) malloc (nx * sizeof(double**));
+  double ***G_n = (double ***) malloc (nx * sizeof(double**));
+  double ***H_n = (double ***) malloc (nx * sizeof(double**));
+  double ***u_new = (double ***) malloc (nx * sizeof(double**));
+  double ***v_new = (double ***) malloc (nx * sizeof(double**));
+  double ***w_new = (double ***) malloc (nx * sizeof(double**));
+  double ***phi_new = (double ***) malloc (nx * sizeof(double**));
+  double ***phi_half = (double ***) malloc (nx * sizeof(double**));
+  double ***p_new = (double ***) malloc (nx * sizeof(double**));
   
-  u = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
-    u[i] = (double *) malloc (ny * sizeof(double));
+    u[i] = (double **) malloc (ny * sizeof(double*));
+    v[i] = (double **) malloc (ny * sizeof(double*));
+    w[i] = (double **) malloc (ny * sizeof(double*));
+    phi[i] = (double **) malloc (ny * sizeof(double*));
+    p[i] = (double **) malloc (ny * sizeof(double*));
+    F_n[i] = (double **) malloc (ny * sizeof(double*));
+    G_n[i] = (double **) malloc (ny * sizeof(double*));
+    H_n[i] = (double **) malloc (ny * sizeof(double*));
+    u_new[i] = (double **) malloc (ny * sizeof(double*));
+    v_new[i] = (double **) malloc (ny * sizeof(double*));
+    w_new[i] = (double **) malloc (ny * sizeof(double*));
+    phi_new[i] = (double **) malloc (ny * sizeof(double*));
+    phi_half[i] = (double **) malloc (ny * sizeof(double*));
+    p_new[i] = (double **) malloc (ny * sizeof(double*));
+    
+    for (int ii = 0; ii < ny; ii++) {
+      u[i][ii] = (double *) malloc (nz * sizeof(double));
+      v[i][ii] = (double *) malloc (nz * sizeof(double));
+      w[i][ii] = (double *) malloc (nz * sizeof(double));
+      phi[i][ii] = (double *) malloc (nz * sizeof(double));
+      p[i][ii] = (double *) malloc (nz * sizeof(double));
+      F_n[i][ii] = (double *) malloc (nz * sizeof(double));
+      G_n[i][ii] = (double *) malloc (nz * sizeof(double));
+      H_n[i][ii] = (double *) malloc (nz * sizeof(double));
+      u_new[i][ii] = (double *) malloc (nz * sizeof(double));
+      v_new[i][ii] = (double *) malloc (nz * sizeof(double));
+      w_new[i][ii] = (double *) malloc (nz * sizeof(double));
+      phi_new[i][ii] = (double *) malloc (nz * sizeof(double));
+      phi_half[i][ii] = (double *) malloc (nz * sizeof(double));
+      p_new[i][ii] = (double *) malloc (nz * sizeof(double));
+    }
   }
   
+
+  /*
   v = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
     v[i] = (double *) malloc (ny * sizeof(double));
@@ -674,24 +538,27 @@ int main() {
   for (int i = 0; i < nx; i++) {
     G_n[i] = (double *) malloc (ny * sizeof(double));
   }
+  */
 
   // --------------------------------------------
 
-  
-  initialize_u(u, nx, ny);
+  initialize_u_3D(u, nx, ny, nz);
+  quick_visualize_3D(u, nx, ny, nz);
+  /*
   initialize_u(u_new, nx, ny);
   initialize_zero(v, nx, ny);
   initialize_zero(v_new, nx, ny);
-  
+  /*
   initialize_phi(phi, nx, ny);
   initialize_phi(phi_half, nx, ny);
   initialize_phi(phi_new, nx, ny);
-
+  */
   //quick_visualize(phi, nx, ny);
-  
+  /*
   initialize_zero(F_n, nx, ny);
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
+  */
   /*
   string filename_prefix = "vtk_files/valid_2_2/valid_2_2_";
   paraview(filename_prefix + "phi_" + to_string(1) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
@@ -699,6 +566,7 @@ int main() {
   paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
   paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
   */
+  /*
   string f_name = "vtk_files/validBest/validBest_";
   const int precision = 10;
   paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
@@ -717,6 +585,7 @@ int main() {
       }
     }
   }
+  */
   
   /*
   for (int it2=1; it2 <= 1; it2++) {
@@ -727,7 +596,7 @@ int main() {
   }
   */
 
-  
+  /*
   for (int it = 100000+1; it <= 100000+50000; it++) {
     explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
     if (it % 200 == 0) {
@@ -738,7 +607,7 @@ int main() {
       //paraview(filename_prefix + "phi_" + to_string(it) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
     }
   }
-  
+  */
   
   /*
   string filename_prefix = "vtk_files/valid_2_1/valid_2_1_";

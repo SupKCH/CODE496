@@ -3,11 +3,12 @@
 #include <fstream> // save & load restart files
 #include <string>
 #include <iomanip> // std::setprecision()
-//#include <cstring> // memcpy --> useless!
+#include <cstring>
 #include <algorithm> // std::max
 //#include <lapacke.h>
 // ==>   g++ code_lapackTEST2.cpp -o code_lapackTEST2.exe -L/usr/lib/x86_64-linux-gnu/ -llapacke
-
+#include <mpi.h>
+#include <stdio.h>
 using namespace std;
 
 ofstream myfileO;  // output file stream
@@ -16,7 +17,6 @@ ifstream myfileI;  // input file stream
 
 double gamma(double** u, double** v, int i, int j, double dx, double dy, double dt) {
   return max(abs(u[i][j]*dt/dx),abs(v[i][j]*dt/dy));
-  //return 0.0;
 }
 
 double du2_dx(double** u, double** v, int i, int j, double dx, double dy, double dt) {
@@ -169,7 +169,7 @@ double eN(int j, int ny) {
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy) {
   double rhs_ij = 0.0;
-  for (int iteration=1; iteration <= 30; iteration++) {
+  for (int iteration=1; iteration <= 5; iteration++) {
     for (int i=1; i <= nx-2; i++) {
       for (int j=1; j <= ny-2; j++) {
         rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
@@ -265,7 +265,7 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
 }
 
 
-void paraview(string fileName, double **var, int nx, int ny, double dx, double dy, string parameter) {
+void paraview(string fileName, double** var, int nx, int ny, double dx, double dy, string parameter) {
   ofstream myfile;
   myfile.open(fileName);
   // -----------------------------------------------------------------//
@@ -595,7 +595,19 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
   }
 }
 
+void nothing(double **var) {
+  // do nothing
+  var[0][1] = 1.0;
+}
+
+
 int main() {
+  MPI_Init(NULL, NULL);
+  int rank, world;
+  MPI_Comm_size(MPI_COMM_WORLD, &world);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  cout << "Hello-4\n";
+  
   const int nx = 800; //400// increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
                       // changed back to 400 (reduced load)
   const int ny = 200; //800// increases by 4 times, previously =50
@@ -605,7 +617,12 @@ int main() {
   const double Re = 300.0;
   const double SOR = 1.7;
   
+  string f_name = "vtk_files/valid_mpi/valid_mpi_";
+  const int precision = 6;
+  
   // ---------------------------------------------
+  cout << "Hello-3\n";
+  
   double **u;
   double **v;
   double **phi;
@@ -619,6 +636,40 @@ int main() {
   double **phi_half;
   double **p_new;
   
+  /*
+  double u[nx][ny];
+  double v[nx][ny];
+  double phi[nx][ny];
+  double p[nx][ny];
+  double F_n[nx][ny];
+  double G_n[nx][ny];
+
+  double u_new[nx][ny];
+  double v_new[nx][ny];
+  double phi_new[nx][ny];
+  double phi_half[nx][ny];
+  double p_new[nx][ny];
+  */
+  /*
+  double **G_n1;
+  double **u1;
+  double **v1;
+  G_n1 = (double **) malloc (nx * sizeof(double));
+  for (int i = 0; i < nx; i++) {
+    G_n1[i] = (double *) malloc (ny * sizeof(double));
+  }
+  u1 = (double **) malloc (nx * sizeof(double));
+  for (int i = 0; i < nx; i++) {
+    u1[i] = (double *) malloc (ny * sizeof(double));
+  }
+  
+  v1 = (double **) malloc (nx * sizeof(double));
+  for (int i = 0; i < nx; i++) {
+    v1[i] = (double *) malloc (ny * sizeof(double));
+  }
+  */
+  
+  cout << "Hello-2\n";
   u = (double **) malloc (nx * sizeof(double));
   for (int i = 0; i < nx; i++) {
     u[i] = (double *) malloc (ny * sizeof(double));
@@ -676,7 +727,7 @@ int main() {
   }
 
   // --------------------------------------------
-
+  cout << "Hello-1\n";
   
   initialize_u(u, nx, ny);
   initialize_u(u_new, nx, ny);
@@ -699,24 +750,76 @@ int main() {
   paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
   paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
   */
-  string f_name = "vtk_files/validBest/validBest_";
-  const int precision = 10;
-  paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+  if (rank == 0) {
+    //paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+  }
   
   for (int it=1; it <= 100000; it++) { //100000
-    F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
-    G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);  
-    u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
-    v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
-    explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
-    if (it % 20 == 0) { //20
-      cout << it << "\n";
-      if (it % 1000 == 0) { //1000
-	paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+    cout << "Hello0\n";
+    if (rank == 0) {
+      //MPI_Send(G_n, nx*ny, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
+      MPI_Send(&(u[0][0]), nx*ny, MPI_DOUBLE, 1, 1, MPI_COMM_WORLD);
+      MPI_Send(&(v[0][0]), nx*ny, MPI_DOUBLE, 1, 2, MPI_COMM_WORLD);
+      F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
+      cout << "Hello0.5\n";
+      MPI_Recv(&(G_n[0][0]), nx*ny, MPI_DOUBLE, 1, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    else if (rank == 1) {
+      cout << "Hello1\n";
+      //MPI_Recv(G_n, nx*ny, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      cout << "Hello2\n";
+      cout << u[0][0] << "\n";
+      MPI_Recv(&(u[0][0]), nx*ny, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(&(v[0][0]), nx*ny, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      //quick_visualize(u, nx, ny);
+      cout << u[0][0] << "\n";
+      cout << "Hello3\n";
+      //nothing(u);
+      cout << "Hello3.1\n";
+      //nothing(v);
+      cout << "Hello3.2\n";
+      //nothing(G_n);
+      cout << "Hello3.3\n";
+      G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
+      cout << "Hello3.5\n";
+      MPI_Send(G_n, nx*ny, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+    }
+    //MPI_Barrier(MPI_COMM_WORLD);
+    cout << "Hello4\n";
+
+    if (rank == 0) {
+      pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (rank == 0) {
+      MPI_Send(v_new, nx*ny, MPI_DOUBLE, 1, 4, MPI_COMM_WORLD);
+      MPI_Send(p, nx*ny, MPI_DOUBLE, 1, 5, MPI_COMM_WORLD);
+      u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
+      MPI_Recv(v_new, nx*ny, MPI_DOUBLE, 1, 6, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(v, nx*ny, MPI_DOUBLE, 1, 7, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+    else if (rank == 1) {
+      MPI_Recv(v_new, nx*ny, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(p, nx*ny, MPI_DOUBLE, 0, 5, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
+      MPI_Send(v_new, nx*ny, MPI_DOUBLE, 0, 6, MPI_COMM_WORLD);
+      MPI_Send(v, nx*ny, MPI_DOUBLE, 0, 7, MPI_COMM_WORLD);
+    }
+    //MPI_Barrier(MPI_COMM_WORLD);
+
+    if (rank == 0) {
+      explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
+      if (it % 20 == 0) { //20
+	cout << it << "\n";
+	if (it % 1000 == 0) { //1000
+	  paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+	}
       }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
   }
+  MPI_Finalize();
   
   /*
   for (int it2=1; it2 <= 1; it2++) {
@@ -727,18 +830,17 @@ int main() {
   }
   */
 
-  
-  for (int it = 100000+1; it <= 100000+50000; it++) {
+  /*
+  for (int it = 1; it <= 100000; it++) {
     explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
     if (it % 200 == 0) {
       cout << it << ".\n";
     }
     if (it % 4000 == 0) {
-      paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
-      //paraview(filename_prefix + "phi_" + to_string(it) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
+      paraview(filename_prefix + "phi_" + to_string(it) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
     }
   }
-  
+  */
   
   /*
   string filename_prefix = "vtk_files/valid_2_1/valid_2_1_";

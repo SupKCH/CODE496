@@ -43,7 +43,47 @@ double d2v_dy2(double** v, int i, int j, double dy) {
   return (v[i][j+1] - 2*v[i][j] + v[i][j-1])/pow(dy,2);
 }
 
-void initialize_u_3D(double*** var, int nx, int ny, int nz) {
+double d2u_dz2(double** u, int i, int j, int k, double dz) {
+  return (u[i][j][k+1] - 2*u[i][j][k] + u[i][j][k-1])/pow(dz,2);
+}
+
+double duw_dz(double** u, double** w, int i, int j, int k, double dz) {
+  return ((w[i][j][k] + w[i+1][j][k])*(u[i][j][k] + u[i][j][k+1]) - (w[i][j][k-1] + w[i+1][j][k-1])*(u[i][j][k-1] + u[i][j][k]))/(4*dz);
+}
+
+double d2v_dz2(double**v, int i, int j, int k, double dz) {
+  return (v[i][j][k+1] - 2*v[i][j][k] + v[i][j][k-1])/pow(dz,2);
+}
+
+double dvw_dz(double**v, double** w, int i, int j, int k, double dz) {
+  return ();
+}
+
+double d2w_dx2(double**w, int i, int j, int k, double dx) {
+  return ();
+}
+
+double d2w_dy2(double**w, int i, int j, int k, double dy) {
+  return ();
+}
+
+double d2w_dz2(double**w, int i, int j, int k, double dz) {
+  return ();
+}
+
+double duw_dx() {
+
+}
+
+double dvw_dy() {
+
+}
+
+double dw2_dz() {
+
+}
+
+void initialize_u_3D(double*** var, int nx, int ny, int nz, double dx, double dy, double radius, double centerX, double centerY) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
       for (int k=0; k < nz; k++) {
@@ -51,10 +91,59 @@ void initialize_u_3D(double*** var, int nx, int ny, int nz) {
       }
     }
   }
+  
+  for (int k=1; k <= nz-1; k++) {
+    for (int j=0; j <= ny-1; j++) {
+      var[0][j][k] = 1.0;
+    }
+  }
 
+  for (int j=0; j <= ny-1; j++) {
+    var[0][j][0] = -1.0*var[0][j][1];
+  }
+
+  // >> Later use after solved for velocities! <<
+  
+  /*
+  // No-slip condition @ XY-plane (bottom) *** except jet hole *** <--- over define <--- will repeat the code when solving for u,v,w
+  for (int i=0; i <= nx-1; i++) {
+    for (int j=0; j <= ny-1; j++) {
+      if (!sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))/2) { // No-Slip 'not' on jet hole
+	var[i][j][0] = -1.0*var[i][j][1];
+      }
+      else { // Free-slip on hole
+	var[i][j][0] = var[i][j][1];
+      }
+    }
+  }
+  */
+  
+}
+
+void initialize_v_3D(double*** var, int nx, int ny, int nz, double dx, double dy, double radius, double centerX, double centerY) {
+  for (int i=0; i < nx; i++) {
+    for (int j=0; j < ny; j++) {
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 0.0;
+      }
+    }
+  }
+}
+
+void initialize_w_3D(double*** var, int nx, int ny, int nz, double dx, double dy, double radius, double centerX, double centerY) {
+  for (int i=0; i < nx; i++) {
+    for (int j=0; j < ny; j++) {
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 0.0;
+      }
+    }
+  }
+  
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      var[i][j][0] = 1.0;
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))/2) {
+	var[i][j][0] = 1.0;
+      }
     }
   }
   /* // No-slip condition
@@ -65,27 +154,44 @@ void initialize_u_3D(double*** var, int nx, int ny, int nz) {
   */
 }
 
-void initialize_zero(double** var, int nx, int ny) {
+
+void initialize_zero_3D(double*** var, int nx, int ny, int nz) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
-      var[i][j] = 0.0;
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 0.0;
+      }
     }
   }
 }
 
-void initialize_phi(double** var, int nx, int ny) {
+void initialize_phi_3D(double*** var, int nx, int ny, int nz, double dx, double dy, double radius, double centerX, double centerY) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
-      var[i][j] = 0.0;
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 0.0;
+      }
     }
   }
-
-  for (int j=0; j < int(ny/2); j++) {
-    var[0][j] = 1.0;
+  for (int i=1; i <= nx-2; i++) {
+    for (int j=1; j <= ny-2; j++) {
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))/2) {
+	var[i][j][0] = 1.0;
+      }
+    }
   }
 }
 
-void initialize_pressure(double** var, int nx, int ny) {
+void initialize_pressure_3D(double*** var, int nx, int ny, int nz) {
+  for (int i=0; i < nx; i++) {
+    for (int j=0; j < ny; j++) {
+      for (int k=0; k < nz; k++) {
+	var[i][j][k] = 1.0;
+      }
+    }
+  }
+
+  /*
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
       if ((int)(i+j) % 2 == 0) {	
@@ -94,6 +200,7 @@ void initialize_pressure(double** var, int nx, int ny) {
       else var[i][j] = 0.5;
     }
   }
+  */
 }
 
 void quick_visualize_3D(double*** var, int nx, int ny, int nz) {
@@ -393,14 +500,14 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
 }
 
 int main() {
-  const int nx = 10;
-  const int ny = 20;
-  const int nz = 15;
+  const int nx = 20*5;
+  const int ny = 10*5;
+  const int nz = 15*5;
   const double dx = 20.0/(double)ny;
   const double dy = 10.0/(double)ny;
   const double dz = 15.0/(double)nz;
   const double dt = 0.001; // Previously 0.005
-  const double diameter = 1.0;
+  const double radius = 1.0/2;
   const double Re = 1000.0;
   const double SOR = 1.7;
 
@@ -455,7 +562,8 @@ int main() {
   }
   
   // --------------------------------------------
-  initialize_u_3D(u, nx, ny, nz);
+  initialize_u_3D(u, nx, ny, nz, dx, dy, radius, centerX, centerY);
+  initialize_w_3D(w, nx, ny, nz, dx, dy, radius, centerX, centerY);
   quick_visualize_3D(u, nx, ny, nz);
   
 }

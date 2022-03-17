@@ -350,6 +350,28 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
   }
 }
 
+void save_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny, int precision){
+  ofstream myfileO;  // output file stream
+  myfileO.open(name_prefix + variable_name + "_" + to_string(iteration) + ".dat");
+  for (int i = 0; i <= nx-1; i++) {
+     for (int j = 0; j <= ny-1; j++) {
+       myfileO << setprecision(precision) << var[i][j] << " ";
+    }
+     myfileO << "\n";
+  }
+  myfileO.close();
+}
+
+void read_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny){
+  ifstream myfileI;  // input file stream
+  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_" + variable_name + "_" + to_string(iteration) + ".dat");
+  for (int i = 0; i <= nx-1; i++) {
+     for (int j = 0; j <= ny-1; j++) {
+       myfileI >> var[i][j];
+    }
+  }
+  myfileI.close();
+}
 
 int main() {
   const int nx = 400; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
@@ -448,7 +470,9 @@ int main() {
   initialize_pressure(p, nx, ny);
   
   string f_name = "vtk_files/validBest/validBest_";
+  string name_prefix = "checkpoints/Validation_2DChannelFlow/";
   const int precision = 10;
+  const int save_precision = 6;
   paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
   
   for (int it=1; it <= 100000; it++) { //100000
@@ -463,12 +487,20 @@ int main() {
       if (it % 1000 == 0) { //1000
 	paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
       }
+      if (it % 200 == 0) {
+	save_restartfile(u, name_prefix, "u", it, nx, ny, save_precision);
+	save_restartfile(v, name_prefix, "v", it, nx, ny, save_precision);
+	save_restartfile(F_n, name_prefix, "F_n", it, nx, ny, save_precision);
+	save_restartfile(G_n, name_prefix, "G_n", it, nx, ny, save_precision);
+	save_restartfile(u_new, name_prefix, "u_new", it, nx, ny, save_precision);
+	save_restartfile(v_new, name_prefix, "v_new", it, nx, ny, save_precision);
+	save_restartfile(p, name_prefix, "p", it, nx, ny, save_precision);
+	save_restartfile(phi, name_prefix, "phi", it, nx, ny, save_precision);
+	save_restartfile(phi_half, name_prefix, "phi_half", it, nx, ny, save_precision);
+	save_restartfile(phi_new, name_prefix, "phi_new", it, nx, ny, save_precision);
+      }
     }
   }
-  // RESTART FILE
-  /*
-  string restart_filename = "res_files/valid_2_1.dat";
-  save_restartfile(phi, restart_filename, nx, ny);
-  read_restartfile(phi, restart_filename, nx, ny);
-  */
+  // RESTART FILE  
+  // read_restartfile(u, name_prefix, "u", it, nx, ny);  
 }

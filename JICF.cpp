@@ -3,27 +3,20 @@
 #include <fstream> // save & load restart files
 #include <string>
 #include <iomanip> // std::setprecision()
-#include <cstring>
-#include <algorithm> // std::max
-//#include <lapacke.h>
-// ==>   g++ code_lapackTEST2.cpp -o code_lapackTEST2.exe -L/usr/lib/x86_64-linux-gnu/ -llapacke
-
 using namespace std;
+// Validation_6.vtk (recheck) gives results identical to Validation_4.vtk (old data)
+//    ^ x_max = 32                                          ^ x_max = 32
+// note: _5.vtk ---> x_max = 64 (too much), presents different convergence (that is usual for  sure!)
 
 ofstream myfileO;  // output file stream
 ifstream myfileI;  // input file stream
 
-
-double gamma(double** u, double** v, int i, int j, double dx, double dy, double dt) {
-  return max(abs(u[i][j]*dt/dx),abs(v[i][j]*dt/dy));
+double du2_dx(double** u, int i, int j, double dx) {
+  return (pow((u[i][j] + u[i+1][j])/2.0, 2) - pow((u[i-1][j] + u[i][j])/2.0, 2))/dx;
 }
 
-double du2_dx(double** u, double** v, int i, int j, double dx, double dy, double dt) {
-  return (pow((u[i][j] + u[i+1][j])/2.0, 2) - pow((u[i-1][j] + u[i][j])/2.0, 2))/dx + gamma(u,v,i,j,dx,dy,dt)*(abs(u[i][j] + u[i+1][j])*(u[i][j] - u[i+1][j]) - abs(u[i-1][j] + u[i][j])*(u[i-1][j] - u[i][j]))/(4*dx);
-}
-
-double duv_dy(double** u, double** v, int i, int j, double dx, double dy, double dt) {
-  return ((v[i][j] + v[i+1][j])*(u[i][j] + u[i][j+1])  -  (v[i][j-1] + v[i+1][j-1])*(u[i][j-1] + u[i][j]))/(4.0*dy) + gamma(u,v,i,j,dx,dy,dt)*(abs(v[i][j] + v[i+1][j])*(u[i][j] - u[i][j+1]) - abs(v[i][j-1] + v[i+1][j-1])*(u[i][j-1] - u[i][j]))/(4.0*dy);
+double duv_dy(double** u, double** v, int i, int j, double dy) {
+  return ((v[i][j] + v[i+1][j])*(u[i][j] + u[i][j+1])  -  (v[i][j-1] + v[i+1][j-1])*(u[i][j-1] + u[i][j]))/(4.0*dy);
 }
 
 double d2u_dx2(double** u, int i, int j, double dx) {
@@ -34,12 +27,12 @@ double d2u_dy2(double** u, int i, int j, double dy) {
   return (u[i][j+1] - 2*u[i][j] + u[i][j-1])/pow(dy, 2);
 }
 
-double duv_dx(double** u, double** v, int i, int j, double dx, double dy, double dt) {
-  return ((u[i][j] + u[i][j+1])*(v[i][j] + v[i+1][j])  -  (u[i-1][j] + u[i-1][j+1])*(v[i-1][j] + v[i][j]))/(4.0*dx) + gamma(u,v,i,j,dx,dy,dt)*(abs(u[i][j] + u[i][j+1])*(v[i][j] - v[i+1][j]) - abs(u[i-1][j] + u[i-1][j+1])*(v[i-1][j] - v[i][j]))/(4.0*dx);
+double duv_dx(double** u, double** v, int i, int j, double dx) {
+  return ((u[i][j] + u[i][j+1])*(v[i][j] + v[i+1][j])  -  (u[i-1][j] + u[i-1][j+1])*(v[i-1][j] + v[i][j]))/(4.0*dx);
 }
 
-double dv2_dy(double** u, double** v, int i, int j, double dx, double dy, double dt) {
-  return (pow( v[i][j] + v[i][j+1] ,2)  -  pow( v[i][j-1] + v[i][j] ,2))/(4*dy) + gamma(u,v,i,j,dx,dy,dt)*(abs(v[i][j] + v[i][j+1])*(v[i][j] - v[i][j+1]) - abs(v[i][j-1] + v[i][j])*(v[i][j-1] - v[i][j]))/(4.0*dy);
+double dv2_dy(double** v, int i, int j, double dy) {
+  return (pow( v[i][j] + v[i][j+1] ,2)  -  pow( v[i][j-1] + v[i][j] ,2))/(4*dy);
 }
 
 double d2v_dx2(double** v, int i, int j, double dx) {
@@ -64,7 +57,7 @@ void initialize_u_3D(double*** var, int nx, int ny, int nz) {
       var[i][j][0] = 1.0;
     }
   }
-  /*
+  /* // No-slip condition
   for (int i=0; i <= nx-1; i++) {
     var[i][0] = -1.0*var[i][1];
     var[i][ny-1] = -1.0*var[i][ny-2];
@@ -93,13 +86,13 @@ void initialize_phi(double** var, int nx, int ny) {
 }
 
 void initialize_pressure(double** var, int nx, int ny) {
-  for (int i=0; i <= nx-1; i++) {
-    for (int j=0; j <= ny-1; j++) {
-      var[i][j] = 1.0;
+  for (int i=0; i < nx; i++) {
+    for (int j=0; j < ny; j++) {
+      if ((int)(i+j) % 2 == 0) {	
+	var[i][j] = 1.0;
+      }
+      else var[i][j] = 0.5;
     }
-  }
-  for (int j=0; j <= ny-1; j++) {
-    var[0][j] = 1.0;
   }
 }
 
@@ -127,22 +120,19 @@ double g_value(int VALUE) {
 void F_calculation(double** F_n, double** u, double** v, int nx, int ny, double dt, double Re, double dx, double dy) {
   for (int i=1; i <= nx-3; i++) {
     for (int j=1; j <= ny-2; j++) {
-      F_n[i][j] = u[i][j] + dt*( (d2u_dx2(u,i,j,dx) + d2u_dy2(u,i,j,dy))/Re - du2_dx(u,v,i,j,dx,dy,dt) - duv_dy(u,v,i,j,dx,dy,dt) + 0.0 );
+      F_n[i][j] = u[i][j] + dt*( (d2u_dx2(u,i,j,dx) + d2u_dy2(u,i,j,dy))/Re - du2_dx(u,i,j,dx) - duv_dy(u,v,i,j,dy) + 0.0 );
     }
   }
   for (int j=1; j <= ny-2; j++) {
-    //F_n[0][j] = u[0][j];
-    F_n[0][j] = 1.0;
-    //F_n[nx-2][j] = u[nx-2][j];
-    F_n[nx-2][j] = F_n[nx-3][j];
-    F_n[nx-1][j] = F_n[nx-2][j];
+    F_n[0][j] = u[0][j];
+    F_n[nx-2][j] = u[nx-2][j];
   }
 }
 
 void G_calculation(double** G_n, double** u, double** v, int nx, int ny, double dt, double Re, double dx, double dy) {
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-3; j++) {
-      G_n[i][j] = v[i][j] + dt*( (d2v_dx2(v,i,j,dx) + d2v_dy2(v,i,j,dy))/Re - duv_dx(u,v,i,j,dx,dy,dt) - dv2_dy(u,v,i,j,dx,dy,dt) + 0.0 );
+      G_n[i][j] = v[i][j] + dt*( (d2v_dx2(v,i,j,dx) + d2v_dy2(v,i,j,dy))/Re - duv_dx(u,v,i,j,dx) - dv2_dy(v,i,j,dy) + 0.0 );
     }
   }
   for (int i=1; i <= nx-2; i++) {
@@ -176,12 +166,10 @@ double eN(int j, int ny) {
 }
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy) {
-  double rhs_ij = 0.0;
-  for (int iteration=1; iteration <= 16; iteration++) {
+  for (int iteration=1; iteration <= 30; iteration++) {
     for (int i=1; i <= nx-2; i++) {
       for (int j=1; j <= ny-2; j++) {
-        rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
-	//cout << rhs_ij << "\n";
+	double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
 	p[i][j] = (1-SOR) * p[i][j] + SOR/((eE(i, nx) + eW(i))/(dx*dx) + (eN(j, ny) + eS(j))/(dy*dy)) * ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
       }
     }
@@ -224,14 +212,11 @@ void u_calculation(double** u_new, double** u, double** F_n, double** p, double 
   }
 
   // update
-  //memcpy(u, u_new, sizeof(u));
-  
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
       u[i][j] = u_new[i][j];
     }
   }
-  
 }
 
 void v_calculation(double** v_new, double** v, double** G_n, double** p, double dt, double dy, int nx, int ny) {
@@ -243,9 +228,7 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
 
   // inflow
   for (int j=1; j <= ny-3; j++) {
-    //v_new[0][j] = -1.0*v_new[1][j];
-    v_new[0][j] = 0.0;
-    v_new[1][j] = 0.0;
+    v_new[0][j] = -1.0*v_new[1][j];
   }
   
   // outflow
@@ -262,14 +245,11 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
   }
   
   // update
-  //memcpy(v, v_new, sizeof(v));
-  
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
       v[i][j] = v_new[i][j];
     }
   }
-  
 }
 
 
@@ -302,12 +282,11 @@ void paraview(string fileName, double **var, int nx, int ny, double dx, double d
   myfile << "LOOKUP_TABLE default\n";
   for (int j = 0; j <= ny-1; j++) {
     for (int i = 0; i <= nx-1; i++) {
-      myfile << setprecision(6) << var[i][j] << "\n";
+      myfile << setprecision(15) << var[i][j] << "\n";
     }
   }
   myfile.close();
 }
-
 
 void paraview2D(string fileName, double** u_new, double** v_new, double** p, double** phi_new, int nx, int ny, double dx, double dy, int precision) {
   ofstream myfile;
@@ -362,40 +341,10 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
   myfile.close();
 }
 
-/* NOT FINISHED - just changed only arguments */
 void paraview3D(string fileName, double** u_new, double** v_new, double** w_new, double** p, double** phi_new, int nx, int ny, int nz, double dx, double dy, double dz) {
-  ofstream myfile;
-  myfile.open(fileName);
-  // -----------------------------------------------------------------//
-  // Paraview header
-  myfile << "# vtk DataFile Version 2.0\n";
-  myfile << "FlowField\n";
-  myfile << "ASCII\n";
-
-  // Grid
-  myfile << "DATASET STRUCTURED_GRID\n";
-  myfile << "DIMENSIONS " << nx << " " << 1 << " " << ny << "\n";
-  myfile << "POINTS " << nx*1*ny << " float\n";
-  for (int j = 0; j <= ny-1; j++) {
-    for (int i = 0; i <= nx-1; i++) {
-      myfile << dx*i << " " << dy*j << " 0\n";
-    }
-  }
   
-  // Data
-  myfile << "\n";
-  myfile << "POINT_DATA";
-  myfile << " " << nx*ny << "\n";
-
-  myfile << "\n";
-  myfile << "SCALARS " << "p" << " float 1\n";
-  myfile << "LOOKUP_TABLE default\n";
-  for (int j = 0; j <= ny-1; j++) {
-    for (int i = 0; i <= nx-1; i++) {
-      myfile << setprecision(6) << p[i][j] << "\n";
-    }
-  }
-  myfile.close();
+  
+  
 }
 
 void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, double** v_new, int nx, int ny, double dx, double dy, double dt, double Re) {
@@ -418,7 +367,29 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
       phi[i][j] = phi_new[i][j];
     }
   }
+}
 
+void save_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny, int precision){
+  ofstream myfileO;  // output file stream
+  myfileO.open(name_prefix + variable_name + "_" + to_string(iteration) + ".dat");
+  for (int i = 0; i <= nx-1; i++) {
+     for (int j = 0; j <= ny-1; j++) {
+       myfileO << setprecision(precision) << var[i][j] << " ";
+    }
+     myfileO << "\n";
+  }
+  myfileO.close();
+}
+
+void read_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny){
+  ifstream myfileI;  // input file stream
+  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_" + variable_name + "_" + to_string(iteration) + ".dat");
+  for (int i = 0; i <= nx-1; i++) {
+     for (int j = 0; j <= ny-1; j++) {
+       myfileI >> var[i][j];
+    }
+  }
+  myfileI.close();
 }
 
 int main() {
@@ -450,7 +421,6 @@ int main() {
   double ***w_new = (double ***) malloc (nx * sizeof(double**));
   double ***phi_new = (double ***) malloc (nx * sizeof(double**));
   double ***phi_half = (double ***) malloc (nx * sizeof(double**));
-  double ***p_new = (double ***) malloc (nx * sizeof(double**));
   
   for (int i = 0; i < nx; i++) {
     u[i] = (double **) malloc (ny * sizeof(double*));
@@ -466,7 +436,6 @@ int main() {
     w_new[i] = (double **) malloc (ny * sizeof(double*));
     phi_new[i] = (double **) malloc (ny * sizeof(double*));
     phi_half[i] = (double **) malloc (ny * sizeof(double*));
-    p_new[i] = (double **) malloc (ny * sizeof(double*));
     
     for (int ii = 0; ii < ny; ii++) {
       u[i][ii] = (double *) malloc (nz * sizeof(double));
@@ -482,176 +451,11 @@ int main() {
       w_new[i][ii] = (double *) malloc (nz * sizeof(double));
       phi_new[i][ii] = (double *) malloc (nz * sizeof(double));
       phi_half[i][ii] = (double *) malloc (nz * sizeof(double));
-      p_new[i][ii] = (double *) malloc (nz * sizeof(double));
     }
   }
   
-
-  /*
-  v = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    v[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  phi = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    phi[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  p = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    p[i] = (double *) malloc (ny * sizeof(double));
-  }
-
-
-  u_new = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    u_new[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  v_new = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    v_new[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  phi_new = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    phi_new[i] = (double *) malloc (ny * sizeof(double));
-  }
-
-  phi_half = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    phi_half[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  p_new = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    p_new[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  F_n = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    F_n[i] = (double *) malloc (ny * sizeof(double));
-  }
-  
-  G_n = (double **) malloc (nx * sizeof(double));
-  for (int i = 0; i < nx; i++) {
-    G_n[i] = (double *) malloc (ny * sizeof(double));
-  }
-  */
-
   // --------------------------------------------
-
   initialize_u_3D(u, nx, ny, nz);
   quick_visualize_3D(u, nx, ny, nz);
-  /*
-  initialize_u(u_new, nx, ny);
-  initialize_zero(v, nx, ny);
-  initialize_zero(v_new, nx, ny);
-  /*
-  initialize_phi(phi, nx, ny);
-  initialize_phi(phi_half, nx, ny);
-  initialize_phi(phi_new, nx, ny);
-  */
-  //quick_visualize(phi, nx, ny);
-  /*
-  initialize_zero(F_n, nx, ny);
-  initialize_zero(G_n, nx, ny);
-  initialize_pressure(p, nx, ny);
-  */
-  /*
-  string filename_prefix = "vtk_files/valid_2_2/valid_2_2_";
-  paraview(filename_prefix + "phi_" + to_string(1) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
-  paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
-  paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
-  paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
-  */
-  /*
-  string f_name = "vtk_files/validBest/validBest_";
-  const int precision = 10;
-  paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
   
-  for (int it=1; it <= 100000; it++) { //100000
-    F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
-    G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);  
-    u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
-    v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
-    explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
-    if (it % 20 == 0) { //20
-      cout << it << "\n";
-      if (it % 1000 == 0) { //1000
-	paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
-      }
-    }
-  }
-  */
-  
-  /*
-  for (int it2=1; it2 <= 1; it2++) {
-    //implicit_passiveScalar(phi, phi_half, phi_new, u_new, v_new, nx, ny, dx,  dy, dt, Re, false);
-    if (it2 % 1 == 0) {
-      cout << it2 << ".\n";
-    }
-  }
-  */
-
-  /*
-  for (int it = 100000+1; it <= 100000+50000; it++) {
-    explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
-    if (it % 200 == 0) {
-      cout << it << ".\n";
-    }
-    if (it % 4000 == 0) {
-      paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
-      //paraview(filename_prefix + "phi_" + to_string(it) + ".vtk", phi_new, nx, ny, dx, dy, "phi");
-    }
-  }
-  */
-  
-  /*
-  string filename_prefix = "vtk_files/valid_2_1/valid_2_1_";
-  paraview(filename_prefix + "u_" + to_string(1) + ".vtk", u_new, nx, ny, dx, dy, "u");
-  paraview(filename_prefix + "v_" + to_string(1) + ".vtk", v_new, nx, ny, dx, dy, "v");
-  paraview(filename_prefix + "p_" + to_string(1) + ".vtk", p, nx, ny, dx, dy, "p");
-  paraview(filename_prefix + "Fn_" + to_string(1) + ".vtk", F_n, nx, ny, dx, dy, "F_n");
-  paraview(filename_prefix + "Gn_" + to_string(1) + ".vtk", G_n, nx, ny, dx, dy, "G_n");
- 
-
-  for (int i=2; i<=5000; i++) {
-    // ############ STEP 1: Calculate F_n & G_n from u_n, v_n ############
-    F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
-    G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-  
-    // ############ STEP 2: Solve Poisson Eqn. for pressure @ n+1, p_n+1  ############ 
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);
-  
-
-    // ############ STEP 3: compute new velocity field (u_n+1, v_n+1) with p_n+1  ############
-    u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
-    v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
-    if (i % 1 == 0) {
-      paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
-      paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
-      paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");
-      paraview(filename_prefix + "Fn_" + to_string(i) + ".vtk", F_n, nx, ny, dx, dy, "u");
-      paraview(filename_prefix + "Gn_" + to_string(i) + ".vtk", G_n, nx, ny, dx, dy, "v");
-      cout << i << "\n";
-    }
-    else if (i >= 4910 && i <= 4990 && i % 10 == 0) {
-      paraview(filename_prefix + "u_" + to_string(i) + ".vtk", u_new, nx, ny, dx, dy, "u");
-      paraview(filename_prefix + "v_" + to_string(i) + ".vtk", v_new, nx, ny, dx, dy, "v");
-      paraview(filename_prefix + "p_" + to_string(i) + ".vtk", p, nx, ny, dx, dy, "p");
-      cout << i << "\n";
-    }
-  }
-
-
-  */
-  // RESTART FILE
-  /*
-  string restart_filename = "res_files/valid_2_1.dat";
-  save_restartfile(phi, restart_filename, nx, ny);
-  read_restartfile(phi, restart_filename, nx, ny);
-  */
 }

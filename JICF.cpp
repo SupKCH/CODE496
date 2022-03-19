@@ -187,7 +187,7 @@ void initialize_pressure_3D(double*** var, int nx, int ny, int nz) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
       for (int k=0; k < nz; k++) {
-	var[i][j][k] = 1.0;
+	var[i][j][k] = 0.0;
       }
     }
   }
@@ -274,41 +274,41 @@ void H_calculation(double*** H_n, double*** u, double*** v, double*** w, int nx,
 }
 
 double eW(int i) {
-  if (i == 1) return 0.0;
+  if (i == 1) return 1.0;
   else if (i > 1) return 1.0;
   return 1.0;
 }
-
+// 0 1 1
 double eE(int i, int nx) {
   if (i < nx-2) return 1.0;
   else if (i == nx-2) return 0.0;
-  return 0.0;
+  return 1.0;
 }
-
+// 1 0 0
 double eS(int j) {
-  if (j == 1) return 0.0;
+  if (j == 1) return 1.0;
   else if (j > 1) return 1.0;
   return 1.0;
 }
-
+// 0 1 1
 double eN(int j, int ny) {
   if (j < ny-2) return 1.0;
-  else if (j == ny-2) return 0.0;
-  return 0.0;
+  else if (j == ny-2) return 1.0;
+  return 1.0;
 }
-
+// 1 0 0
 double eB(int k) {
-  if (k == 1) return 0.0;
+  if (k == 1) return 1.0;
   else if (k > 1) return 1.0;
   return 1.0;
 }
-
+// 0 1 1
 double eT(int k, int nz) {
   if (k < nz-2) return 1.0;
-  else if (k == nz-2) return 0.0;
-  return 0.0;
+  else if (k == nz-2) return 1.0;
+  return 1.0;
 }
-
+// 1 0 0
 
 void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, double*** H_n, int nx, int ny, int nz, double dt, double dx, double dy, double dz) {
   for (int iteration=1; iteration <= 30; iteration++) {
@@ -346,7 +346,31 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
 	p[i][j][nz-1] = p[i][j][nz-2];
       }
     }
+    // L2-Norm + Max-Norm
+    if (iteration % 5 == 0) {
+      double tmp = 0.0;
+      double max_norm = 0.0;
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=1; j <= ny-2; j++) {
+	  for (int k=1; k < nz-2; k++) {
+	    double rhs_ijk = ((F_n[i][j][k] - F_n[i-1][j][k])/dx + \
+			      (G_n[i][j][k] - G_n[i][j-1][k])/dy + \
+			      (H_n[i][j][k] - H_n[i][j][k-1])/dz)/dt;
+	    double residual_ijk = \
+	      (eE(i,nx)*(p[i+1][j][k] - p[i][j][k]) - eW(i)*(p[i][j][k] - p[i-1][j][k]))/(dx*dx) + \
+	      (eN(j,ny)*(p[i][j+1][k] - p[i][j][k]) - eS(j)*(p[i][j][k] - p[i][j-1][k]))/(dy*dy) + \
+	      (eT(k,nz)*(p[i][j][k+1] - p[i][j][k]) - eB(k)*(p[i][j][k] - p[i][j][k-1]))/(dz*dz) - rhs_ijk;
+	    tmp += pow(residual_ijk, 2);
+	    if (residual_ijk > max_norm) {
+	      max_norm = residual_ijk;
+	    }
+	  }
+	}
+      }
+      cout << sqrt(tmp/double((nx-2)*(ny-2)*(nz-2))) << "\t" << max_norm << "\n";
+    }
   }
+  cout << "------------------\n";
 }
 
 void u_calculation(double*** u_new, double*** u, double*** F_n, double*** p, double dt, double dx, int nx, int ny, int nz) {
@@ -416,9 +440,9 @@ void v_calculation(double*** v_new, double*** v, double*** G_n, double*** p, dou
   }
 
   // inflow x=West/Free-slip x=East (YZ)
-  for (int k=1; k <= nz-2; k++) {
-    for (int j=1; j <= ny-3; j++) {
-      v_new[0][j][k] = -1.0*v_new[1][j][k]; // no v at inlet
+  for (int k=0; k <= nz-1; k++) {
+    for (int j=0; j <= ny-1; j++) {
+      v_new[0][j][k] = v_new[1][j][k]; // free v at inlet
       v_new[nx-1][j][k] = v_new[nx-2][j][k]; // free-slip
     }
   }
@@ -730,13 +754,13 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
 }
 
 int main() {
-  const int nx = 20*10;
-  const int ny = 10*10;
-  const int nz = 15*10;
+  const int nx = 20*4;
+  const int ny = 10*4;
+  const int nz = 15*4;
   const double dx = 20.0/(double)ny;
   const double dy = 10.0/(double)ny;
   const double dz = 15.0/(double)nz;
-  const double dt = 0.00001; // Previously 0.005
+  const double dt = 0.005; // Previously 0.005
   const double radius = 1.0/2;
   const double Re = 1000.0;
   const double SOR = 1.7;
@@ -806,10 +830,10 @@ int main() {
   initialize_pressure_3D(p, nx, ny, nz);
 
   string f_name = "vtk_files/JICF2/JICF2_";
-  const int precision = 6;
+  const int precision = 10;
   paraview3D(f_name + to_string(1) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision);
 
-  for (int it = 1; it <= 100; it++) {
+  for (int it = 1; it <= 2000; it++) {
     F_calculation(F_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
     G_calculation(G_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
     H_calculation(H_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
@@ -820,7 +844,7 @@ int main() {
     v_calculation(v_new, v, G_n, p, dt, dy, nx, ny, nz);
     w_calculation(w_new, w, H_n, p, dt, dx, dy, dz, nx, ny, nz, centerX, centerY, radius);
 
-    //explicit_passiveScalar(phi, phi_new, u_new, v_new, w_new, nx, ny, nz, dx, dy, dz, dt, Re, centerX, centerY, radius);
+    explicit_passiveScalar(phi, phi_new, u_new, v_new, w_new, nx, ny, nz, dx, dy, dz, dt, Re, centerX, centerY, radius);
 
     if (it % 20 == 0) {
       paraview3D(f_name + to_string(it) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision);

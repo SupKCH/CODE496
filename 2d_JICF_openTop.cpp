@@ -164,12 +164,30 @@ double eN(int j, int ny) {
   return 0.0;
 }
 
-void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy) {
+void pressure_cal(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int i, int j) {
+  double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
+  p[i][j] = \
+    (1-SOR) * p[i][j] +							\
+    SOR/((eE(i, nx) + eW(i))/(dx*dx) + \
+	 (eN(j, ny) + eS(j))/(dy*dy)) *					\
+    ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + \
+     (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
+}
+
+void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int ext_it) {
   for (int iteration=1; iteration <= 30; iteration++) {
-    for (int i=1; i <= nx-2; i++) {
-      for (int j=1; j <= ny-2; j++) {
-	double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
-	p[i][j] = (1-SOR) * p[i][j] + SOR/((eE(i, nx) + eW(i))/(dx*dx) + (eN(j, ny) + eS(j))/(dy*dy)) * ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
+    if (ext_it % 2 == 0) {
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=1; j <= ny-2; j++) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
+      }
+    }
+    else {
+      for (int i=nx-2; i >= 1; i--) {
+	for (int j=1; j <= ny-2; j++) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
       }
     }
     
@@ -188,7 +206,7 @@ void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
 	  double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + \
-			    (G_n[i][j] - G_n[i][j-1])/dy)/dt;
+			   (G_n[i][j] - G_n[i][j-1])/dy)/dt;
 	  double residual_ij = \
 	    (eE(i,nx)*(p[i+1][j] - p[i][j]) - eW(i)*(p[i][j] - p[i-1][j]))/(dx*dx) + \
 	    (eN(j,ny)*(p[i][j+1] - p[i][j]) - eS(j)*(p[i][j] - p[i][j-1]))/(dy*dy) - rhs_ij;
@@ -367,7 +385,12 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
 void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, double** v_new, int nx, int ny, double dx, double dy, double dt, double Re) {
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      phi_new[i][j] = phi[i][j] + dt*(((phi[i+1][j] - 2*phi[i][j] + phi[i-1][j])/(dx*dx) + (phi[i][j+1] - 2*phi[i][j] + phi[i][j-1])/(dy*dy))/Re - u_new[i][j]*(phi[i+1][j] - phi[i-1][j])/(2*dx) - v_new[i][j]*(phi[i][j+1] - phi[i][j-1])/(2*dy));
+      phi_new[i][j] = phi[i][j] + dt*(\
+				      ((phi[i+1][j] - 2*phi[i][j] + phi[i-1][j])/(dx*dx) + \
+				       (phi[i][j+1] - 2*phi[i][j] + phi[i][j-1])/(dy*dy))/Re - \
+				      (u_new[i][j] + u_new[i-1][j])*(phi[i+1][j] - phi[i-1][j])/(4*dx) - \
+				      (v_new[i][j] + v_new[i][j-1])*(phi[i][j+1] - phi[i][j-1])/(4*dy)\
+				      );
     }
   }
   for (int j=0; j <= ny-1; j++) {
@@ -414,12 +437,12 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
 }
 
 int main() {
-  const int nx = 200;//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
+  const int nx = 400;//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
   const int ny = 200;//15*10*2; // increases by 4 times, previously =50
   //const double dy = 15.0/(double)ny; 
   const double dy = (15.0/(double)ny); // becomes smaller by 4 times
   //const double dx = 20.0/(double)nx; 
-  const double dx = 2.0*dy; // increases by 4 times, previously =4.0*dy
+  const double dx = 1.0*dy; // increases by 4 times, previously =4.0*dy
   const double dt = 0.001; // Previously 0.005
   const double Re = 300.0;
   const double SOR = 1.7;
@@ -472,7 +495,7 @@ int main() {
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
   
-  string f_name = "vtk_files/2dJICF/2dJICF_";
+  string f_name = "vtk_files/2dJICF_openTop/2dJICF_openTop_";
   //string name_prefix = "checkpoints/Validation_2DChannelFlow/";
   const int precision = 10;
   const int save_precision = 6;
@@ -481,7 +504,7 @@ int main() {
   for (int it=1; it <= 100000; it++) { //100000
     F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
     G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);  
+    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, it);  
     u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
     v_calculation(v_new, v, G_n, p, dt, dy, nx, ny, dx);
     explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);

@@ -169,7 +169,28 @@ void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx
       p[i][0] = p[i][1];
       p[i][ny-1] = p[i][ny-2];
     }
+  
+    // L2-Norm + Max-Norm
+    if (iteration % 5 == 0) {
+      double tmp = 0.0;
+      double max_norm = 0.0;
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=1; j <= ny-2; j++) {
+	  double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + \
+			   (G_n[i][j] - G_n[i][j-1])/dy)/dt;
+	  double residual_ij = \
+	    (eE(i,nx)*(p[i+1][j] - p[i][j]) - eW(i)*(p[i][j] - p[i-1][j]))/(dx*dx) + \
+	    (eN(j,ny)*(p[i][j+1] - p[i][j]) - eS(j)*(p[i][j] - p[i][j-1]))/(dy*dy) - rhs_ij;
+	  tmp += pow(residual_ij, 2);
+	  if (residual_ij > max_norm) {
+	    max_norm = residual_ij;
+	  }	  
+	}
+      }
+      cout << sqrt(tmp/double((nx-2)*(ny-2))) << "\t" << max_norm << "\n";
+    }
   }
+  cout << "------------------\n";
 }
 
 void u_calculation(double** u_new, double** u, double** F_n, double** p, double dt, double dx, int nx, int ny) {

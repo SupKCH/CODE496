@@ -8,6 +8,8 @@ using namespace std;
 //    ^ x_max = 32                                          ^ x_max = 32
 // note: _5.vtk ---> x_max = 64 (too much), presents different convergence (that is usual for  sure!)
 
+// Alternative file: only change array declaration style
+
 ofstream myfileO;  // output file stream
 ifstream myfileI;  // input file stream
 

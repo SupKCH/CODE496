@@ -175,7 +175,7 @@ void pressure_cal(double** p, double SOR,  double** F_n, double** G_n, int nx, i
 }
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int ext_it) {
-  for (int iteration=1; iteration <= 30; iteration++) {
+  for (int iteration=1; iteration <= 30*2; iteration++) {
     if (ext_it % 2 == 0) {
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
@@ -183,13 +183,27 @@ void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx
 	}
       }
     }
+    // else {
+    //   for (int i=nx-2; i >= 1; i--) {
+    // 	for (int j=1; j <= ny-2; j++) {
+    // 	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+    // 	}
+    //   }
+    // }
     else {
       for (int i=nx-2; i >= 1; i--) {
-	for (int j=1; j <= ny-2; j++) {
-	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
-	}
+    	for (int j=ny-2; j >= 1; j--) {
+    	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+    	}
       }
     }
+    // else {
+    //   for (int i=1; i <= nx-2; i++) {
+    // 	for (int j=ny-2; j >= 1; j--) {
+    // 	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+    // 	}
+    //   }
+    // }
     
     for (int j=1; j <= ny-2; j++) {
       p[0][j] = p[1][j];
@@ -243,7 +257,7 @@ void u_calculation(double** u_new, double** u, double** F_n, double** p, double 
   // No-slip -- update all u-nodes at outlet (nx-1) still works like (nx-2)
   for (int i=1; i <= nx-1; i++) {
     // TOP
-    u_new[i][ny-1] = -1.0*u_new[i][ny-2];
+    u_new[i][ny-1] = u_new[i][ny-2]; // open Top now
     // BOTTOM
     u_new[i][0] = -1.0*u_new[i][1];
   }
@@ -275,8 +289,10 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
 
   // No-Slip
   for (int i=1; i <= nx-1; i++) {
-    // TOP
-    v_new[i][ny-2] = 0.0;
+    // TOP -->> Open Top!
+    //v_new[i][ny-2] = 0.0;
+    v_new[i][ny-2] = v_new[i][ny-3];
+    v_new[i][ny-1] = v_new[i][ny-2];
     // BOTTOM
     v_new[i][0] = 0.0;
 
@@ -437,8 +453,8 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
 }
 
 int main() {
-  const int nx = 400;//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
-  const int ny = 200;//15*10*2; // increases by 4 times, previously =50
+  const int nx = 400;//400//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
+  const int ny = 200;//200//15*10*2; // increases by 4 times, previously =50
   //const double dy = 15.0/(double)ny; 
   const double dy = (15.0/(double)ny); // becomes smaller by 4 times
   //const double dx = 20.0/(double)nx; 

@@ -175,7 +175,7 @@ void pressure_cal(double** p, double SOR,  double** F_n, double** G_n, int nx, i
 }
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int ext_it) {
-  for (int iteration=1; iteration <= 30*2; iteration++) {
+  for (int iteration=1; iteration <= 30; iteration++) {
     if (ext_it % 2 == 0) {
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
@@ -354,7 +354,7 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
   myfile << "ASCII\n";
 
   myfile << "DATASET STRUCTURED_GRID\n";
-  myfile << "DIMENSIONS " << nx << " " << 1 << " " << ny << "\n";
+  myfile << "DIMENSIONS " << nx << " " << ny << " " << 1 << "\n";
   myfile << "POINTS " << nx*1*ny << " float\n";
   for (int j = 0; j <= ny-1; j++) {
     for (int i = 0; i <= nx-1; i++) {
@@ -453,14 +453,14 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
 }
 
 int main() {
-  const int nx = 400;//400//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
-  const int ny = 200;//200//15*10*2; // increases by 4 times, previously =50
+  const int nx = 200*2;//400//20*10*1; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
+  const int ny = 150*2;//200//15*10*2; // increases by 4 times, previously =50
   //const double dy = 15.0/(double)ny; 
-  const double dy = (15.0/(double)ny); // becomes smaller by 4 times
-  //const double dx = 20.0/(double)nx; 
-  const double dx = 1.0*dy; // increases by 4 times, previously =4.0*dy
-  const double dt = 0.001; // Previously 0.005
-  const double Re = 300.0;
+  const double dx = 20.0/(double)nx;
+  const double dy = 15.0/(double)ny; // becomes smaller by 4 times
+  //const double dx = 1.0*dy; // increases by 4 times, previously =4.0*dy
+  const double dt = 0.0005; // Previously 0.005
+  const double Re = 1000.0;
   const double SOR = 1.7;
   
   // ---------------------------------------------

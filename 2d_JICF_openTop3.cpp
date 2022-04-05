@@ -64,7 +64,7 @@ void initialize_v(double** var, int nx, int ny, double dx) {
   }
 
   for (int i=int((5-1)/dx); i <= int((5+1)/dx) ; i++) {
-    var[i][0] = 0.2;
+    var[i][0] = 2.0;
   } 
 }
 
@@ -91,9 +91,9 @@ void initialize_phi(double** var, int nx, int ny, double dx) {
 void initialize_pressure(double** var, int nx, int ny) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
-      if ((int)(i+j) % 2 == 0) {	
-	var[i][j] = 1.0;
-	}
+      //if ((int)(i+j) % 2 == 0) {	
+	var[i][j] = 0.0;
+	//}
     }
   }
 }
@@ -307,7 +307,7 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
     v_new[i][0] = 0.0;
 
     if (i >= int((5-1)/dx) && i <= int((5+1)/dx)) {
-      v_new[i][0] = 0.2;
+      v_new[i][0] = 2.0;
     }
   }
   

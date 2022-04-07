@@ -176,6 +176,15 @@ void pressure_cal(double** p, double SOR,  double** F_n, double** G_n, int nx, i
 }
 
 void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int ext_it) {
+  for (int j=1; j <= ny-2; j++) {
+      p[0][j] = p[1][j];
+      p[nx-1][j] = p[nx-2][j];
+  }
+  for (int i=0; i <= nx-1; i++) {
+    p[i][0] = p[i][1];
+    p[i][ny-1] = p[i][ny-2];
+  }
+  
   int iteration_limit;
   if (ext_it == 1) {
     iteration_limit = 100;
@@ -197,14 +206,7 @@ void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx
       }
     }
     
-    for (int j=1; j <= ny-2; j++) {
-      p[0][j] = p[1][j];
-      p[nx-1][j] = p[nx-2][j];
-    }
-    for (int i=0; i <= nx-1; i++) {
-      p[i][0] = p[i][1];
-      p[i][ny-1] = p[i][ny-2];
-    }
+    
     // L2-Norm + Max-Norm
     if (iteration % 5 == 0) {
       double tmp = 0.0;
@@ -351,7 +353,7 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
 
   myfile << "DATASET STRUCTURED_GRID\n";
   myfile << "FIELD FieldData 1\n";
-  myfile << "TIME 1 1 double\n";
+  myfile << "TIME 1 1 1 double\n";
   myfile << to_string(t);
   myfile << "DIMENSIONS " << nx << " " << ny << " " << 1 << "\n";
   myfile << "POINTS " << nx*1*ny << " float\n";
@@ -455,7 +457,7 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
   myfileI.close();
 }
 
-double variable_dt(double tau, double nx, double ny, double Re, double dx, double dy, double** u, double** v) {
+double variable_dt(double tau, int nx, int ny, double Re, double dx, double dy, double** u, double** v) {
   double u_max = 0.0;
   double v_max = 0.0;
   for (int i = 0; i <= nx-1; i++) {
@@ -479,8 +481,8 @@ int main() {
   const double dx = 20.0/(double)nx;
   const double dy = 15.0/(double)ny; // becomes smaller by 4 times
   //const double dx = 1.0*dy; // increases by 4 times, previously =4.0*dy
-  const double tau = 0.10;
-  const double Re = 300.0;
+  const double tau = 0.05;
+  const double Re = 1000.0;
   const double SOR = 1.7;
   
   // ---------------------------------------------

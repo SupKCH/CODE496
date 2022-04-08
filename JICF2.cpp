@@ -349,7 +349,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
     }
 
     if (ext_it % 8 == 1) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //      cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -359,7 +359,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it & 8 == 2) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -369,7 +369,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }    
     else if (ext_it % 8 == 3) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -379,7 +379,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 4) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -389,7 +389,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 5) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -399,7 +399,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it & 8 == 6) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -409,7 +409,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 7) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -419,7 +419,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 0) {
-      cout << "hi" + to_string(ext_it % 8) + "\n";
+      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -964,7 +964,7 @@ int main() {
   string f_name = "vtk_files/JICF3/JICF3_";
   // string name_prefix = ...;
   const int precision = 6;
-  paraview3D(f_name + to_string(1) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, 0.0);
+  //paraview3D(f_name + to_string(1) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, 0.0);
 
   cout << "Start solving ...\n";
   double dt = 0.0001; // Previously 0.005
@@ -982,7 +982,7 @@ int main() {
     explicit_passiveScalar(phi, phi_new, u_new, v_new, w_new, nx, ny, nz, dx, dy, dz, dt, Re, centerX, centerY, radius);
     t += dt;
     if (it % 100 == 0) { //100
-      paraview3D(f_name + to_string(it) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, t);
+      //paraview3D(f_name + to_string(it) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, t);
     }
   }
   //quick_visualize_3D(phi_new, nx, ny, nz);

@@ -5,9 +5,6 @@
 #include <iomanip> // std::setprecision()
 #include <algorithm> // std:min
 using namespace std;
-// Validation_6.vtk (recheck) gives results identical to Validation_4.vtk (old data)
-//    ^ x_max = 32                                          ^ x_max = 32
-// note: _5.vtk ---> x_max = 64 (too much), presents different convergence (that is usual for  sure!)
 
 ofstream myfileO;  // output file stream
 ifstream myfileI;  // input file stream
@@ -96,30 +93,13 @@ void initialize_u_3D(double*** var, int nx, int ny, int nz, double dx, double dy
   
   for (int k=1; k <= nz-1; k++) {
     for (int j=0; j <= ny-1; j++) {
-      var[0][j][k] = 1.0;
+      var[0][j][k] = 0.5;
     }
   }
 
   for (int j=0; j <= ny-1; j++) {
     var[0][j][0] = -1.0*var[0][j][1];
   }
-
-  // >> Later use after solved for velocities! <<
-  
-  /*
-  // No-slip condition @ XY-plane (bottom) *** except jet hole *** <--- over define <--- will repeat the code when solving for u,v,w
-  for (int i=0; i <= nx-1; i++) {
-    for (int j=0; j <= ny-1; j++) {
-      if (!sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))/2) { // No-Slip 'not' on jet hole
-	var[i][j][0] = -1.0*var[i][j][1];
-      }
-      else { // Free-slip on hole
-	var[i][j][0] = var[i][j][1];
-      }
-    }
-  }
-  */
-  
 }
 
 void initialize_v_3D(double*** var, int nx, int ny, int nz, double dx, double dy, double radius, double centerX, double centerY) {
@@ -143,17 +123,11 @@ void initialize_w_3D(double*** var, int nx, int ny, int nz, double dx, double dy
   
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))*0.0) {
-	var[i][j][0] = 0.0; // 2.0
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))*0.001) {
+	var[i][j][0] = 1.0; // 2.0
       }
     }
   }
-  /* // No-slip condition
-  for (int i=0; i <= nx-1; i++) {
-    var[i][0] = -1.0*var[i][1];
-    var[i][ny-1] = -1.0*var[i][ny-2];
-  }
-  */
 }
 
 
@@ -177,7 +151,7 @@ void initialize_phi_3D(double*** var, int nx, int ny, int nz, double dx, double 
   }
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))*0.0) {
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) < radius + sqrt(pow(dx,2) + pow(dy,2))*0.001) {
 	var[i][j][0] = 1.0;
       }
     }
@@ -206,14 +180,6 @@ void quick_visualize_3D(double*** var, int nx, int ny, int nz) {
   }
   cout << "\n";
 }
-
-/*
-double g_value(int VALUE) {
-  if (VALUE == 1) {return 0.0;}
-  else if (VALUE == 2) {return 0.0;}
-  else if (VALUE == 3) {return 1.0;}
-  else return 0.0;
-  }*/
 
 void F_calculation(double*** F_n, double*** u, double*** v, double*** w, int nx, int ny, int nz, double dt, double Re, double dx, double dy, double dz) {
   for (int i=1; i <= nx-3; i++) {
@@ -259,7 +225,7 @@ void H_calculation(double*** H_n, double*** u, double*** v, double*** w, int nx,
       for (int k=1; k <= nz-3; k++) {
 	H_n[i][j][k] = w[i][j][k] + dt*( \
 					(d2w_dx2(w,i,j,k,dx) + d2w_dy2(w,i,j,k,dy) + d2w_dz2(w,i,j,k,dz))/Re - \
-					 duw_dx(u,w,i,j,k,dx) - dvw_dy(v,w,i,j,k,dy) - dw2_dz(w,i,j,k,dz) + 0.0 \
+					duw_dx(u,w,i,j,k,dx) - dvw_dy(v,w,i,j,k,dy) - dw2_dz(w,i,j,k,dz) + 0.0 \
 					 );
       }
     }
@@ -349,7 +315,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
     }
 
     if (ext_it % 8 == 1) {
-      //      cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -358,8 +323,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
 	}
       }
     }
-    else if (ext_it & 8 == 2) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
+    else if (ext_it % 8 == 2) {
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -369,7 +333,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }    
     else if (ext_it % 8 == 3) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -379,7 +342,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 4) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -389,7 +351,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 5) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -398,8 +359,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
 	}
       }
     }
-    else if (ext_it & 8 == 6) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
+    else if (ext_it % 8 == 6) {
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -409,7 +369,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 7) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=1; i <= nx-2; i++) {
 	for (int j=1; j <= ny-2; j++) {
 	  for (int k=nz-2; k >= 1; k--) {
@@ -419,7 +378,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
     else if (ext_it % 8 == 0) {
-      //cout << "hi" + to_string(ext_it % 8) + "\n";
       for (int i=nx-2; i >= 1; i--) {
 	for (int j=ny-2; j >= 1; j--) {
 	  for (int k=1; k <= nz-2; k++) {
@@ -429,7 +387,6 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
     }
         
-    
     // L2-Norm + Max-Norm
     if (iteration % 5 == 0) {
       double tmp = 0.0;
@@ -453,9 +410,7 @@ void pressure_solver(double*** p, double SOR,  double*** F_n, double*** G_n, dou
       }
       double norm = sqrt(tmp/double((nx-2)*(ny-2)*(nz-2)));
       cout << iteration << "\t" << norm << "\t" << max_norm << "\n";
-      if (iteration >= 10 && norm <= 1.0) {
-	break;
-      }
+      if (iteration >= iteration_limit && norm <= 1.0) break;
     }
   }
   cout << "------------------\n";
@@ -473,7 +428,7 @@ void u_calculation(double*** u_new, double*** u, double*** F_n, double*** p, dou
   // confirm inflow x=West (YZ)
   for (int k=1; k <= nz-2; k++) {
     for (int j=1; j <= ny-2; j++) {
-      u_new[0][j][k] = 1.0;
+      u_new[0][j][k] = 0.5;
     }
   }
 
@@ -504,8 +459,8 @@ void u_calculation(double*** u_new, double*** u, double*** F_n, double*** p, dou
   // z=Top (XY)
   for (int j=1; j <= ny-2; j++) {
     for (int i=1; i <= nx-2; i++) {
-      //u_new[i][j][nz-1] = u_new[i][j][nz-2];
-      u_new[i][j][nz-1] = -1.0*u_new[i][j][nz-2]; // no-slip
+      u_new[i][j][nz-1] = u_new[i][j][nz-2];
+      //u_new[i][j][nz-1] = -1.0*u_new[i][j][nz-2]; // no-slip
     }
   }
 
@@ -548,8 +503,8 @@ void v_calculation(double*** v_new, double*** v, double*** G_n, double*** p, dou
   // Free-slip k=Top/ No-slip k=Bottom (XY)
   for (int i=1; i <= nx-1; i++) {
     for (int j=0; j <= ny-1; j++) {
-      //v_new[i][j][nz-1] = v_new[i][j][nz-2]; // open top
-      v_new[i][j][nz-1] = -1.0*v_new[i][j][nz-2]; // no-slip
+      v_new[i][j][nz-1] = v_new[i][j][nz-2]; // open top
+      //v_new[i][j][nz-1] = -1.0*v_new[i][j][nz-2]; // no-slip
       v_new[i][j][0] = -1.0*v_new[i][j][1]; // ground at bottom
     }
   }
@@ -576,11 +531,11 @@ void w_calculation(double*** w_new, double*** w, double*** H_n, double*** p, dou
   // No-flow (except hole) k=Bottom
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) >= radius + sqrt(pow(dx,2) + pow(dy,2))*0.0) { // not hole
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) >= radius + sqrt(pow(dx,2) + pow(dy,2))*0.001) { // not hole
 	w_new[i][j][0] = 0.0;
       }
       else { // confirm jet flow
-	w_new[i][j][0] = 0.0; //2.0
+	w_new[i][j][0] = 1.0; //2.0
       }
     }
   }
@@ -588,10 +543,10 @@ void w_calculation(double*** w_new, double*** w, double*** H_n, double*** p, dou
   // outflow k=Top (XY)
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-2; j++) {
-      //w_new[i][j][nz-2] = w_new[i][j][nz-3];
-      //w_new[i][j][nz-1] = w_new[i][j][nz-2]
-      w_new[i][j][nz-2] = 0.0;
-      w_new[i][j][nz-1] = 0.0;
+      w_new[i][j][nz-2] = w_new[i][j][nz-3];
+      w_new[i][j][nz-1] = w_new[i][j][nz-2];
+      //w_new[i][j][nz-2] = 0.0;
+      //w_new[i][j][nz-1] = 0.0;
     }
   }
   
@@ -717,9 +672,6 @@ void paraview3D(string fileName, double*** u_new, double*** v_new, double*** w_n
   myfile << "ASCII\n";
 
   myfile << "DATASET STRUCTURED_GRID\n";
-  // myfile << "FIELD FieldData 1\n";
-  // myfile << "TIME 1 1 1 double\n";
-  // myfile << to_string(t) + "\n";
   myfile << "DIMENSIONS " << nx << " " << ny << " " << nz << "\n";
   myfile << "POINTS " << nx*ny*nz << " float\n";
   for (int k = 0; k <= nz-1; k++) {
@@ -730,7 +682,7 @@ void paraview3D(string fileName, double*** u_new, double*** v_new, double*** w_n
     }
   }
   
-  // Data: (u, v, w), p, phi (5 variables)
+  // Data: (u, v, w), p, phi (5 variables) + k
   myfile << "\n";
   myfile << "POINT_DATA";
   myfile << " " << nx*ny*nz << "\n";
@@ -802,11 +754,11 @@ void explicit_passiveScalar(double*** phi, double*** phi_new, double*** u_new, d
   // k=Top/Bottom (XY)
   for (int i=0; i <= nx-1; i++) {
     for (int j=0; j <= ny-1; j++) {
-      //phi_new[i][j][nz-1] = phi_new[i][j][nz-2];
-      phi_new[i][j][nz-1] = 0.0;
-      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) >= radius + sqrt(pow(dx,2) + pow(dy,2))*0.0) { // not hole
-	//phi_new[i][j][0] = phi_new[i][j][1];
-	phi_new[i][j][0] = 0.0;
+      phi_new[i][j][nz-1] = phi_new[i][j][nz-2];
+      //phi_new[i][j][nz-1] = 0.0;
+      if (sqrt(pow(i*dx - centerX ,2) + pow(j*dy - centerY ,2)) >= radius + sqrt(pow(dx,2) + pow(dy,2))*0.001) { // not hole
+	phi_new[i][j][0] = phi_new[i][j][1];
+	//phi_new[i][j][0] = 0.0;
       }
       else { // at hole
       	phi_new[i][j][0] = phi[i][j][0];
@@ -816,20 +768,20 @@ void explicit_passiveScalar(double*** phi, double*** phi_new, double*** u_new, d
   // x=West,East (YZ)
   for (int j=0; j <= ny-1; j++) {
     for (int k=0; k <= nz-1; k++) {
-      //phi_new[0][j][k] = phi_new[1][j][k];
-      //phi_new[nx-1][j][k] = phi_new[nx-2][j][k];
-      phi_new[0][j][k] = 0.0;
-      phi_new[nx-1][j][k] = 0.0;
+      phi_new[0][j][k] = phi_new[1][j][k];
+      phi_new[nx-1][j][k] = phi_new[nx-2][j][k];
+      //phi_new[0][j][k] = 0.0;
+      //phi_new[nx-1][j][k] = 0.0;
     }
   }
   
   // y=South,North (XZ)
   for (int i=0; i <= nx-1; i++) {
     for (int k=0; k <= nz-1; k++) {
-      //phi_new[i][0][k] = phi_new[i][1][k];
-      //phi_new[i][ny-1][k] = phi_new[i][ny-2][k];
-      phi_new[i][0][k] = 0.0;
-      phi_new[i][ny-1][k] = 0.0;
+      phi_new[i][0][k] = phi_new[i][1][k];
+      phi_new[i][ny-1][k] = phi_new[i][ny-2][k];
+      //phi_new[i][0][k] = 0.0;
+      //phi_new[i][ny-1][k] = 0.0;
     }
   }
 
@@ -837,33 +789,55 @@ void explicit_passiveScalar(double*** phi, double*** phi_new, double*** u_new, d
   for (int i=0; i <= nx-1; i++) {
     for (int j=0; j <= ny-1; j++) {
       for (int k=0; k <= nz-1; k++) {
+	if (phi_new[i][j][k] >= 1.0) phi_new[i][j][k] = 1.0;
+	else if (phi_new[i][j][k] <= 0.0) phi_new[i][j][k] = 0.0;
 	phi[i][j][k] = phi_new[i][j][k];
       }
     }
   }
 }
 
-void save_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny, int precision){
-  ofstream myfileO;  // output file stream
-  myfileO.open(name_prefix + variable_name + "_" + to_string(iteration) + ".dat");
+void save_restartfile(double ***var, string name_prefix, string variable_name, int iteration, int nx, int ny, int nz, int save_precision){
+  ofstream myfileO;
+  myfileO.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "x" + to_string(nz) + "_" + variable_name + "_" + to_string(iteration) + ".dat");
   for (int i = 0; i <= nx-1; i++) {
-     for (int j = 0; j <= ny-1; j++) {
-       myfileO << setprecision(precision) << var[i][j] << " ";
+    for (int j = 0; j <= ny-1; j++) {
+      for (int k = 0; k <= nz-1; k++) {
+	myfileO << setprecision(save_precision) << var[i][j][k] << " ";
+      }
     }
-     myfileO << "\n";
+    myfileO << "\n";
   }
   myfileO.close();
 }
 
-void read_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny){
-  ifstream myfileI;  // input file stream
-  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_" + variable_name + "_" + to_string(iteration) + ".dat");
+void read_restartfile(double ***var, string name_prefix, string variable_name, int readAt_iteration, int nx, int ny, int nz){
+  ifstream myfileI;
+  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "x" + to_string(nz) + "_" + variable_name + "_" + to_string(readAt_iteration) + ".dat");
   for (int i = 0; i <= nx-1; i++) {
-     for (int j = 0; j <= ny-1; j++) {
-       myfileI >> var[i][j];
+    for (int j = 0; j <= ny-1; j++) {
+      for (int k = 0; k <= nz-1; k++) {
+	myfileI >> var[i][j][k];
+      }
     }
   }
   myfileI.close();
+}
+
+void save_time(double t, string name_prefix, int iteration, int nx, int ny, int nz) {
+  ofstream myfileO;
+  myfileO.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "x" + to_string(nz) + "_t_" + to_string(iteration) + ".dat");
+  myfileO << t << endl;
+  myfileO.close();
+}
+
+double load_time(string name_prefix, int readAt_iteration, int nx, int ny, int nz) {
+  ifstream myfileI;
+  double t;
+  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "x" + to_string(nz) + "_t_" + to_string(readAt_iteration) + ".dat");
+  myfileI >> t;
+  myfileI.close();
+  return t;
 }
 
 double variable_dt(double tau, int nx, int ny, int nz, double Re, double dx, double dy, double dz, double*** u, double*** v, double*** w) {
@@ -879,24 +853,42 @@ double variable_dt(double tau, int nx, int ny, int nz, double Re, double dx, dou
       }
     }
   }
-  return tau * min( (Re/2)/(1/pow(dx,2) + 1/pow(dy,2) + 1/pow(dz,2)), min(dx/u_max, min(dy/v_max, dz/w_max)));
+  return tau * min( (Re/2)/(1/pow(dx,2) + 1/pow(dy,2) + 1/pow(dz,2)), \
+		    min(dx/u_max, \
+			min(dy/v_max, dz/w_max)));
 }
 
 int main() {
-  const int nx = 200/2;//20*4*2;
-  const int ny = 100/2;//10*4*2;
-  const int nz = 150/2;//15*4*2;
+  const int nx = 200;
+  const int ny = 100;
+  const int nz = 80;//150;
   const double dx = 20.0/(double)nx;
   const double dy = 10.0/(double)ny;
-  const double dz = 15.0/(double)nz;
-  const double tau = 0.05;
+  //const double dz = 15.0/(double)nz;
+  const double dz = 8.0/(double)nz;
+  
   const double radius = 1.0/2;
-  const double Re = 300.0;
+  const double Re = 1000.0;
   const double SOR = 1.7;
 
   const double centerX = 5.0;
   const double centerY = 5.0;
 
+  // **** ------------------------ ****
+  const bool checkpoint = false;
+  int readAt_iteration = 13000;
+  // **** ------------------------ ****
+
+  string f_name = "../vtk/JICF/JICF_";
+  string name_prefix = "checkpoints/small_JICF/";
+  const int precision = 4;
+  const int save_precision = 8;
+  
+  double dt = 0.0001;
+  double t = 0.0;
+  double tau = 0.05;
+
+  printf("Total nodes = %d \n", nx*ny*nz);
   cout << "Allocating varaibles ...\n";
   // ---------------------------------------------
   double ***u = (double ***) malloc (nx * sizeof(double**));
@@ -945,33 +937,42 @@ int main() {
     }
   }
 
-  cout << "Initialize initial condition ...\n";
-  // --------------------------------------------
-  initialize_u_3D(u, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_v_3D(v, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_w_3D(w, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_u_3D(u_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_v_3D(v_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_w_3D(w_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_zero_3D(F_n, nx, ny, nz);
-  initialize_zero_3D(G_n, nx, ny, nz);
-  initialize_zero_3D(H_n, nx, ny, nz);
-  initialize_phi_3D(phi, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_phi_3D(phi_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
-  initialize_pressure_3D(p, nx, ny, nz);
+  if (!checkpoint) {
+    cout << "Initialize initial condition ...\n";
+    // --------------------------------------------
+    initialize_u_3D(u, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_v_3D(v, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_w_3D(w, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_u_3D(u_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_v_3D(v_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_w_3D(w_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_zero_3D(F_n, nx, ny, nz);
+    initialize_zero_3D(G_n, nx, ny, nz);
+    initialize_zero_3D(H_n, nx, ny, nz);
+    initialize_phi_3D(phi, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_phi_3D(phi_new, nx, ny, nz, dx, dy, radius, centerX, centerY);
+    initialize_pressure_3D(p, nx, ny, nz);
 
-  cout << "Writing the first .vtk file ...\n";
-  string f_name = "vtk_files/JICF3/JICF3_";
-  // string name_prefix = ...;
-  const int precision = 6;
-  //paraview3D(f_name + to_string(1) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, 0.0);
+    cout << "Writing the initial .vtk file ...\n";
+    paraview3D(f_name + to_string(1) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, 0.0);
+    readAt_iteration = 0;
+  }
+  else {
+    cout << "Load checkpoint. Continue from timestep#" + to_string(readAt_iteration) << endl;
+    read_restartfile(u, name_prefix, "u", readAt_iteration, nx, ny, nz);
+    read_restartfile(v, name_prefix, "v", readAt_iteration, nx, ny, nz);
+    read_restartfile(w, name_prefix, "w", readAt_iteration, nx, ny, nz);
+    read_restartfile(p, name_prefix, "p", readAt_iteration, nx, ny, nz);
+    read_restartfile(phi, name_prefix, "phi", readAt_iteration, nx, ny, nz);
+    t = load_time(name_prefix, readAt_iteration, nx, ny, nz);
+  }
 
   cout << "Start solving ...\n";
-  double dt = 0.0001; // Previously 0.005
-  double t = 0.0;
-  for (int it = 1; it <= 10000; it++) {
+  for (int it = readAt_iteration + 1; it <= 15000; it++) {
+    if (t >= 51) break;
     dt = variable_dt(tau, nx, ny, nz, Re, dx, dy, dz, u, v, w);
-    cout << it << "\t" << dt << "\t" << t <<  "\n";
+    cout << it << "\t" << dt << "\t" << t << "\t";
+    printf("(tau=%1.2f, Re=%4.1f) \n", tau, Re);
     F_calculation(F_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
     G_calculation(G_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
     H_calculation(H_n, u, v, w, nx, ny, nz, dt, Re, dx, dy, dz);
@@ -981,25 +982,16 @@ int main() {
     w_calculation(w_new, w, H_n, p, dt, dx, dy, dz, nx, ny, nz, centerX, centerY, radius);
     explicit_passiveScalar(phi, phi_new, u_new, v_new, w_new, nx, ny, nz, dx, dy, dz, dt, Re, centerX, centerY, radius);
     t += dt;
-    if (it % 100 == 0) { //100
-      //paraview3D(f_name + to_string(it) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, t);
+    if (it % 200 == 0) {
+      paraview3D(f_name + to_string(it) + ".vtk", u_new, v_new, w_new, p, phi_new, nx, ny, nz, dx, dy, dz, precision, t);
+    }
+    if (it % 500 == 0) {
+      save_restartfile(u, name_prefix, "u", it, nx, ny, nz, save_precision);
+      save_restartfile(v, name_prefix, "v", it, nx, ny, nz, save_precision);
+      save_restartfile(w, name_prefix, "w", it, nx, ny, nz, save_precision);
+      save_restartfile(p, name_prefix, "p", it, nx, ny, nz, save_precision);
+      save_restartfile(phi, name_prefix, "phi", it, nx, ny, nz, save_precision);
+      save_time(t, name_prefix, it, nx, ny, nz);
     }
   }
-  //quick_visualize_3D(phi_new, nx, ny, nz);
-
-  /*
-    if (it % 200 == 0) {
-    save_restartfile(u, name_prefix, "u", it, nx, ny, save_precision);
-    save_restartfile(v, name_prefix, "v", it, nx, ny, save_precision);
-    save_restartfile(F_n, name_prefix, "F_n", it, nx, ny, save_precision);
-    save_restartfile(G_n, name_prefix, "G_n", it, nx, ny, save_precision);
-    save_restartfile(u_new, name_prefix, "u_new", it, nx, ny, save_precision);
-    save_restartfile(v_new, name_prefix, "v_new", it, nx, ny, save_precision);
-    save_restartfile(p, name_prefix, "p", it, nx, ny, save_precision);
-    save_restartfile(phi, name_prefix, "phi", it, nx, ny, save_precision);
-    save_restartfile(phi_half, name_prefix, "phi_half", it, nx, ny, save_precision);
-    save_restartfile(phi_new, name_prefix, "phi_new", it, nx, ny, save_precision);
-    }
-  */
-  
 }

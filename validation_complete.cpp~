@@ -69,7 +69,6 @@ void initialize_phi(double** var, int nx, int ny) {
       var[i][j] = 0.0;
     }
   }
-
   for (int j=0; j < int(ny/2); j++) {
     var[0][j] = 1.0;
   }
@@ -78,12 +77,9 @@ void initialize_phi(double** var, int nx, int ny) {
 void initialize_pressure(double** var, int nx, int ny) {
   for (int i=0; i < nx; i++) {
     for (int j=0; j < ny; j++) {
-      if ((int)(i+j) % 2 == 0) {	
-	var[i][j] = 1.0;
+	var[i][j] = 0.0;
       }
-      else var[i][j] = 0.5;
     }
-  }
 }
 
 void quick_visualize(double** var, int nx, int ny) {
@@ -107,7 +103,9 @@ double g_value(int VALUE) {
 void F_calculation(double** F_n, double** u, double** v, int nx, int ny, double dt, double Re, double dx, double dy) {
   for (int i=1; i <= nx-3; i++) {
     for (int j=1; j <= ny-2; j++) {
-      F_n[i][j] = u[i][j] + dt*( (d2u_dx2(u,i,j,dx) + d2u_dy2(u,i,j,dy))/Re - du2_dx(u,i,j,dx) - duv_dy(u,v,i,j,dy) + 0.0 );
+      F_n[i][j] = u[i][j] + dt*( \
+				(d2u_dx2(u,i,j,dx) + d2u_dy2(u,i,j,dy))/Re - \
+				 du2_dx(u,i,j,dx) - duv_dy(u,v,i,j,dy) + 0.0 );
     }
   }
   for (int j=1; j <= ny-2; j++) {
@@ -119,7 +117,8 @@ void F_calculation(double** F_n, double** u, double** v, int nx, int ny, double 
 void G_calculation(double** G_n, double** u, double** v, int nx, int ny, double dt, double Re, double dx, double dy) {
   for (int i=1; i <= nx-2; i++) {
     for (int j=1; j <= ny-3; j++) {
-      G_n[i][j] = v[i][j] + dt*( (d2v_dx2(v,i,j,dx) + d2v_dy2(v,i,j,dy))/Re - duv_dx(u,v,i,j,dx) - dv2_dy(v,i,j,dy) + 0.0 );
+      G_n[i][j] = v[i][j] + dt*( (d2v_dx2(v,i,j,dx) + d2v_dy2(v,i,j,dy))/Re - \
+				 duv_dx(u,v,i,j,dx) - dv2_dy(v,i,j,dy) + 0.0 );
     }
   }
   for (int i=1; i <= nx-2; i++) {
@@ -129,47 +128,105 @@ void G_calculation(double** G_n, double** u, double** v, int nx, int ny, double 
 }
 
 double eW(int i) {
-  if (i == 1) return 0.0;
+  if (i == 1) return 1.0;
   else if (i > 1) return 1.0;
   return 1.0;
 }
 
 double eE(int i, int nx) {
   if (i < nx-2) return 1.0;
-  else if (i == nx-2) return 0.0;
-  return 0.0;
+  else if (i == nx-2) return 1.0;
+  return 1.0;
 }
 
 double eS(int j) {
-  if (j == 1) return 0.0;
+  if (j == 1) return 1.0;
   else if (j > 1) return 1.0;
   return 1.0;
 }
 
 double eN(int j, int ny) {
   if (j < ny-2) return 1.0;
-  else if (j == ny-2) return 0.0;
-  return 0.0;
+  else if (j == ny-2) return 1.0;
+  return 1.0;
 }
 
-void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy) {
-  for (int iteration=1; iteration <= 30; iteration++) {
-    for (int i=1; i <= nx-2; i++) {
-      for (int j=1; j <= ny-2; j++) {
-	double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
-	p[i][j] = (1-SOR) * p[i][j] + SOR/((eE(i, nx) + eW(i))/(dx*dx) + (eN(j, ny) + eS(j))/(dy*dy)) * ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
-      }
-    }
-    
-    for (int j=1; j <= ny-2; j++) {
+void pressure_cal(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int i, int j) {
+  double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + (G_n[i][j] - G_n[i][j-1])/dy)/dt;
+  p[i][j] = \
+    (1-SOR) * p[i][j] + \
+    SOR/((eE(i, nx) + eW(i))/(dx*dx) + (eN(j, ny) + eS(j))/(dy*dy)) * \
+    ((eE(i, nx)*p[i+1][j] + eW(i)*p[i-1][j])/(dx*dx) + \
+     (eN(j, ny)*p[i][j+1] + eS(j)*p[i][j-1])/(dy*dy) - rhs_ij);
+}
+
+void pressure_solver(double** p, double SOR,  double** F_n, double** G_n, int nx, int ny, double dt, double dx, double dy, int ext_it) {
+  int iteration_limit;
+  if (ext_it == 1) iteration_limit = 100;
+  else iteration_limit = 30;
+  
+  for (int iteration=1; iteration <= iteration_limit; iteration++) {
+    for (int j=0; j <= ny-1; j++) {
       p[0][j] = p[1][j];
       p[nx-1][j] = p[nx-2][j];
     }
-    for (int i=1; i <= nx-2; i++) {
+    for (int i=0; i <= nx-1; i++) {
       p[i][0] = p[i][1];
       p[i][ny-1] = p[i][ny-2];
     }
+
+    if (ext_it % 4 == 1) {
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=1; j <= ny-2; j++) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
+      }
+    }
+    else if (ext_it % 4 == 2) {
+      for (int i=nx-2; i >= 1; i--) {
+	for (int j=ny-2; j >= 1; j--) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
+      }
+    }
+    else if (ext_it % 4 == 3) {
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=ny-2; j >= 1; j--) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
+      }
+    }
+    else if (ext_it % 4 == 0) {
+      for (int i=nx-2; i >= 1; i--) {
+	for (int j=1; j <= ny-2; j++) {
+	  pressure_cal(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, i, j);
+	}
+      }
+    }
+  
+    // L2-Norm + Max-Norm
+    if (iteration % 5 == 0) {
+      double tmp = 0.0;
+      double max_norm = 0.0;
+      for (int i=1; i <= nx-2; i++) {
+	for (int j=1; j <= ny-2; j++) {
+	  double rhs_ij = ((F_n[i][j] - F_n[i-1][j])/dx + \
+			   (G_n[i][j] - G_n[i][j-1])/dy)/dt;
+	  double residual_ij = \
+	    (eE(i,nx)*(p[i+1][j] - p[i][j]) - eW(i)*(p[i][j] - p[i-1][j]))/(dx*dx) + \
+	    (eN(j,ny)*(p[i][j+1] - p[i][j]) - eS(j)*(p[i][j] - p[i][j-1]))/(dy*dy) - rhs_ij;
+	  tmp += pow(residual_ij, 2);
+	  if (residual_ij > max_norm) {
+	    max_norm = residual_ij;
+	  }	  
+	}
+      }
+      double norm = sqrt(tmp/double((nx-2)*(ny-2)));
+      cout << iteration << "\t" << norm << "\t" << max_norm << "\n";
+      if (iteration >= 10 && norm <= 0.1) break;
+    }
   }
+  cout << "------------------\n";
 }
 
 void u_calculation(double** u_new, double** u, double** F_n, double** p, double dt, double dx, int nx, int ny) {
@@ -179,7 +236,7 @@ void u_calculation(double** u_new, double** u, double** F_n, double** p, double 
     }
   }
 
-  // confirm inflow
+  // inflow
   for (int j=1; j <= ny-2; j++) {
     u_new[0][j] = 1.0;
   }
@@ -213,12 +270,12 @@ void v_calculation(double** v_new, double** v, double** G_n, double** p, double 
     }
   }
 
-  // inflow
+  // inlet: x = west
   for (int j=1; j <= ny-3; j++) {
     v_new[0][j] = -1.0*v_new[1][j];
   }
   
-  // outflow
+  // outlet: x = east
   for(int j=1; j <= ny-3; j++) {
     v_new[nx-1][j] = v_new[nx-2][j];
   }
@@ -284,7 +341,7 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
   myfile << "ASCII\n";
 
   myfile << "DATASET STRUCTURED_GRID\n";
-  myfile << "DIMENSIONS " << nx << " " << 1 << " " << ny << "\n";
+  myfile << "DIMENSIONS " << nx << " " << ny << " " << 1 << "\n";
   myfile << "POINTS " << nx*1*ny << " float\n";
   for (int j = 0; j <= ny-1; j++) {
     for (int i = 0; i <= nx-1; i++) {
@@ -316,6 +373,16 @@ void paraview2D(string fileName, double** u_new, double** v_new, double** p, dou
       myfile << setprecision(precision) << phi_new[i][j] << "\n";
     }
   }
+
+  // Kinetic Energy (k) [SCALAR]
+  myfile << "\n";
+  myfile << "SCALARS " << "k" << " float 1\n";
+  myfile << "LOOKUP_TABLE default\n";
+  for (int j = 0; j <= ny-1; j++) {
+    for (int i = 0; i <= nx-1; i++) {
+      myfile << setprecision(precision) << pow(u_new[i][j], 2) + pow(v_new[i][j], 2) << "\n";
+    }
+  }
   
   // Velocity vector (u, v) [VECTOR]
   myfile << "\n";
@@ -334,12 +401,24 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
       phi_new[i][j] = phi[i][j] + dt*(((phi[i+1][j] - 2*phi[i][j] + phi[i-1][j])/(dx*dx) + (phi[i][j+1] - 2*phi[i][j] + phi[i][j-1])/(dy*dy))/Re - u_new[i][j]*(phi[i+1][j] - phi[i-1][j])/(2*dx) - v_new[i][j]*(phi[i][j+1] - phi[i][j-1])/(2*dy));
     }
   }
+  // @ x = west (Inflow)
+  for (int i=0; i < nx; i++) {
+    for (int j=0; j < ny; j++) {
+      phi_new[i][j] = 0.0;
+    }
+  }
+  for (int j=0; j < int(ny/2); j++) {
+    phi_new[0][j] = 1.0;
+  }
+  
+  // @ x = east
   for (int j=0; j <= ny-1; j++) {
     phi_new[nx-1][j] = phi_new[nx-2][j];
   }
+  // @ x = north, south
   for (int i=0; i <= nx-1; i++) {
-    phi_new[i][0] = phi_new[i][1];
-    phi_new[i][ny-1] = phi_new[i][ny-2];
+    phi_new[i][0] = 0.0;
+    phi_new[i][ny-1] = 0.0;
   }
 
   // Update "phi" with "phi_new"
@@ -352,7 +431,7 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
 
 void save_restartfile(double **var, string name_prefix, string variable_name, int iteration, int nx, int ny, int precision){
   ofstream myfileO;  // output file stream
-  myfileO.open(name_prefix + variable_name + "_" + to_string(iteration) + ".dat");
+  myfileO.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_" + variable_name + "_" + to_string(iteration) + ".dat");
   for (int i = 0; i <= nx-1; i++) {
      for (int j = 0; j <= ny-1; j++) {
        myfileO << setprecision(precision) << var[i][j] << " ";
@@ -373,15 +452,60 @@ void read_restartfile(double **var, string name_prefix, string variable_name, in
   myfileI.close();
 }
 
+void save_time(double t, string name_prefix, int iteration, int nx, int ny) {
+  ofstream myfileO;
+  myfileO.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_t_" + to_string(iteration) + ".dat");
+  myfileO << t << endl;
+  myfileO.close();
+}
+
+double load_time(string name_prefix, int readAt_iteration, int nx, int ny) {
+  ifstream myfileI;
+  double t;
+  myfileI.open(name_prefix + to_string(nx) + "x" + to_string(ny) + "_t_" + to_string(readAt_iteration) + ".dat");
+  myfileI >> t;
+  myfileI.close();
+  return t;
+}
+
+double variable_dt(double tau, int nx, int ny, double Re, double dx, double dy, double** u, double** v) {
+  double u_max = 0.0;
+  double v_max = 0.0;
+  for (int i=0; i <= nx-1; i++) {
+    for (int j=0; j <= ny-1; j++) {
+      if (u[i][j] > u_max) u_max = u[i][j];
+      if (v[i][j] > v_max) v_max = v[i][j];
+    }
+  }
+  return tau * min( (Re/2)/(1/pow(dx,2) + 1/pow(dy,2)), \
+		    min(dx/u_max, dy/v_max));
+}
+
 int main() {
   const int nx = 400; // increases from 400 to 800, to reach 63.84 in X-dimensionless distance, instead of 31.92
   const int ny = 200; // increases by 4 times, previously =50
   const double dy = (1.0/(double)ny); // becomes smaller by 4 times
   const double dx = 16.0*dy; // increases by 4 times, previously =4.0*dy
-  const double dt = 0.001; // Previously 0.005
   const double Re = 300.0;
   const double SOR = 1.7;
+
+  // **** ------------------------ ****
+  const bool checkpoint = false;
+  int readAt_iteration = 0;
+  // **** ------------------------ ****
+
+  //string f_name = "vtk_files/validBest_alt/validBestAlt_";
+  string f_name = "/media/sf_Shared/shared_vtk/2DValidationChannelFlow/validation_";
+  string name_prefix = "/media/sf_Shared/shared_checkpoints/checkpoints/Validation_2DChannelFlow/";
+  const int precision = 10;
+  const int save_precision = 6;
   
+  double dt = 0.0001;
+  double t = 0.0;
+  double tau = 0.8;
+
+  printf("Total nodes = %d \n", nx*ny);
+  cout << "Allocating varaibles ...\n";
   // ---------------------------------------------
   double **u = (double **) malloc (nx * sizeof(double*));
   double **v = (double **) malloc (nx * sizeof(double*));
@@ -408,55 +532,54 @@ int main() {
     phi_half[i] = (double *) malloc (ny * sizeof(double));
   }
 
+  if (!checkpoint) {
+  cout << "Initialize initial condition ...\n";
   // --------------------------------------------
   initialize_u(u, nx, ny);
   initialize_u(u_new, nx, ny);
   initialize_zero(v, nx, ny);
   initialize_zero(v_new, nx, ny);
-  
   initialize_phi(phi, nx, ny);
   initialize_phi(phi_half, nx, ny);
   initialize_phi(phi_new, nx, ny);
-  //quick_visualize(phi, nx, ny);
-  
   initialize_zero(F_n, nx, ny);
   initialize_zero(G_n, nx, ny);
   initialize_pressure(p, nx, ny);
-  
-  string f_name = "vtk_files/validBest_alt/validBestAlt_";
-  string name_prefix = "checkpoints/Validation_2DChannelFlow/";
-  const int precision = 10;
-  const int save_precision = 6;
+
+  cout << "Writing the initial .vtk file ...\n";
   paraview2D(f_name + to_string(1) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
-  
-  for (int it=1; it <= 100000; it++) { //100000
+  readAt_iteration = 0;
+  }
+  else {
+    cout << "Load checkpoint. Continue from timestep#" + to_string(readAt_iteration) << endl;
+    read_restartfile(u, name_prefix, "u", readAt_iteration, nx, ny);
+    read_restartfile(v, name_prefix, "v", readAt_iteration, nx, ny);
+    read_restartfile(p, name_prefix, "p", readAt_iteration, nx, ny);
+    read_restartfile(phi, name_prefix, "phi", readAt_iteration, nx, ny);
+    t = load_time(name_prefix, readAt_iteration, nx, ny);
+  }
+
+  cout << "Start solving ...\n";
+  for (int it = readAt_iteration + 1; it <= 34000; it++) { //100000
+    dt = variable_dt(tau, nx, ny, Re, dx, dy, u, v);
+    cout << it << "\t" << dt << "\t" << t <<  "\t";
+    printf("(tau=%1.2f, Re=%3.1f) \n", tau, Re);
     F_calculation(F_n, u, v, nx, ny, dt, Re, dx, dy);
     G_calculation(G_n, u, v, nx, ny, dt, Re, dx, dy);
-    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy);  
+    pressure_solver(p, SOR, F_n, G_n, nx, ny, dt, dx, dy, it);  
     u_calculation(u_new, u, F_n, p, dt, dx, nx, ny);
     v_calculation(v_new, v, G_n, p, dt, dy, nx, ny);
     explicit_passiveScalar(phi, phi_new, u_new, v_new, nx, ny, dx, dy, dt, Re);
-    if (it % 20 == 0) { //20
-      cout << it << "\n";
-      if (it % 1000 == 0) { //1000
-	paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
-      }
-      /*
-      if (it % 200 == 0) {
-	save_restartfile(u, name_prefix, "u", it, nx, ny, save_precision);
-	save_restartfile(v, name_prefix, "v", it, nx, ny, save_precision);
-	save_restartfile(F_n, name_prefix, "F_n", it, nx, ny, save_precision);
-	save_restartfile(G_n, name_prefix, "G_n", it, nx, ny, save_precision);
-	save_restartfile(u_new, name_prefix, "u_new", it, nx, ny, save_precision);
-	save_restartfile(v_new, name_prefix, "v_new", it, nx, ny, save_precision);
-	save_restartfile(p, name_prefix, "p", it, nx, ny, save_precision);
-	save_restartfile(phi, name_prefix, "phi", it, nx, ny, save_precision);
-	save_restartfile(phi_half, name_prefix, "phi_half", it, nx, ny, save_precision);
-	save_restartfile(phi_new, name_prefix, "phi_new", it, nx, ny, save_precision);
-      }
-      */
+    t += dt;
+    if (it % 1000 == 0) { //1000
+      paraview2D(f_name + to_string(it) + ".vtk", u_new, v_new, p, phi_new, nx, ny, dx, dy, precision);
+    }
+    if (it % 500 == 0) {
+      save_restartfile(u, name_prefix, "u", it, nx, ny, save_precision);
+      save_restartfile(v, name_prefix, "v", it, nx, ny, save_precision);
+      save_restartfile(p, name_prefix, "p", it, nx, ny, save_precision);
+      save_restartfile(phi, name_prefix, "phi", it, nx, ny, save_precision);
+      save_time(t, name_prefix, it, nx, ny);
     }
   }
-  // RESTART FILE  
-  // read_restartfile(u, name_prefix, "u", it, nx, ny);  
 }

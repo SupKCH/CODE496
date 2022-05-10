@@ -4,9 +4,6 @@
 #include <string>
 #include <iomanip> // std::setprecision()
 using namespace std;
-// Validation_6.vtk (recheck) gives results identical to Validation_4.vtk (old data)
-//    ^ x_max = 32                                          ^ x_max = 32
-// note: _5.vtk ---> x_max = 64 (too much), presents different convergence (that is usual for  sure!)
 
 ofstream myfileO;  // output file stream
 ifstream myfileI;  // input file stream
@@ -401,6 +398,11 @@ void explicit_passiveScalar(double** phi, double** phi_new, double** u_new, doub
       phi_new[i][j] = phi[i][j] + dt*(((phi[i+1][j] - 2*phi[i][j] + phi[i-1][j])/(dx*dx) + (phi[i][j+1] - 2*phi[i][j] + phi[i][j-1])/(dy*dy))/Re - u_new[i][j]*(phi[i+1][j] - phi[i-1][j])/(2*dx) - v_new[i][j]*(phi[i][j+1] - phi[i][j-1])/(2*dy));
     }
   }
+  // @ x = west (Inflow)
+  for (int j=0; j < int(ny/2); j++) {
+    phi_new[0][j] = 1.0;
+  }
+  
   // @ x = east
   for (int j=0; j <= ny-1; j++) {
     phi_new[nx-1][j] = phi_new[nx-2][j];
@@ -550,7 +552,7 @@ int main() {
   }
 
   cout << "Start solving ...\n";
-  for (int it = readAt_iteration + 1; it <= 100000; it++) { //100000
+  for (int it = readAt_iteration + 1; it <= 34000; it++) { //100000
     dt = variable_dt(tau, nx, ny, Re, dx, dy, u, v);
     cout << it << "\t" << dt << "\t" << t <<  "\t";
     printf("(tau=%1.2f, Re=%3.1f) \n", tau, Re);
